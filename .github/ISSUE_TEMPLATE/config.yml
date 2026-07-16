@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/PeterShanxin/prompt-ui-academy/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue.
+  - name: Live learning experience
+    url: https://prompt-ui-academy.vercel.app
+    about: Open the current production site.

@@ -1,0 +1,37 @@
+name: Feature or learning-content request
+description: Suggest a feature, UI term, exercise, or course improvement.
+title: "[Idea]: "
+labels: [enhancement, needs-triage]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Request type
+      options:
+        - New UI term or pattern
+        - Motion example
+        - Quiz or exercise
+        - Prompt Lab improvement
+        - Accessibility improvement
+        - Other product feature
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Learner problem
+      description: What is currently difficult, unclear, or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Explain the experience you would add or change.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References or examples
+      description: Link authoritative terminology or interaction guidance when relevant.
