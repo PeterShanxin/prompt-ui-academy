@@ -28,7 +28,7 @@ export async function DELETE(request: Request) {
       }
     }
     if (existingTables.length) {
-      const transaction = await services.tables.createTransaction({ ttl: 30 });
+      const transaction = await services.tables.createTransaction({ ttl: 60 });
       for (const tableId of existingTables) {
         await services.tables.deleteRow({
           databaseId: APPWRITE_DATABASE_ID,

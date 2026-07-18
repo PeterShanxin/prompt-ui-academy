@@ -2,7 +2,7 @@ import { Client, TablesDB } from "node-appwrite";
 
 const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
-const apiKey = process.env.APPWRITE_API_KEY;
+const apiKey = process.env.APPWRITE_SETUP_API_KEY ?? process.env.APPWRITE_API_KEY;
 
 if (!endpoint || !projectId || !apiKey) {
   throw new Error("Appwrite endpoint, project ID, and API key are required.");

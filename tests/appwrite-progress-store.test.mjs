@@ -79,13 +79,17 @@ test("allocates a pioneer number and milestone atomically once per learner", asy
     }],
   ]);
   let committed = 0;
+  let transactionTtl = 0;
   const tables = {
     async getRow({ tableId, rowId }) {
       const row = rows.get(`${tableId}:${rowId}`);
       if (!row) throw Object.assign(new Error("missing"), { code: 404 });
       return row;
     },
-    async createTransaction() { return { $id: "tx-1" }; },
+    async createTransaction({ ttl }) {
+      transactionTtl = ttl;
+      return { $id: "tx-1" };
+    },
     async incrementRowColumn({ tableId, rowId }) {
       const key = `${tableId}:${rowId}`;
       const current = rows.get(key);
@@ -115,6 +119,7 @@ test("allocates a pioneer number and milestone atomically once per learner", asy
   assert.equal(first.pioneerNumber, 25);
   assert.deepEqual(second, first);
   assert.equal(committed, 1);
+  assert.ok(transactionTtl >= 60);
   assert.equal(
     rows.get("community_metrics:learner_milestone").band_key,
     "early",

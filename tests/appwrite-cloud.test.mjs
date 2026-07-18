@@ -39,6 +39,7 @@ test("provisions three server-only tables and the cumulative metric seed", async
   assert.match(setup, /band_key:\s*"founding"/);
   assert.match(setup, /ensureDatabase/);
   assert.match(setup, /ensureTable/);
+  assert.match(setup, /APPWRITE_SETUP_API_KEY/);
 });
 
 test("removes the obsolete Supabase migration and middleware", () => {
@@ -66,4 +67,5 @@ test("keeps identity, raw counts, and deletion authority on the server", async (
   assert.match(community, /\{ band: metric\.band_key \}/);
   assert.doesNotMatch(community, /cumulative_verified_accounts\s*[,}]/);
   assert.match(deletion, /updateStatus[\s\S]+status: false[\s\S]+deleteRow[\s\S]+users\.delete/);
+  assert.match(deletion, /createTransaction\(\{ ttl: (?:[6-9]\d|[1-9]\d{2,}) \}\)/);
 });

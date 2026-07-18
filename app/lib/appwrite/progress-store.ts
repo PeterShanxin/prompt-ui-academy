@@ -72,7 +72,7 @@ export async function ensureLearnerProfile(
     if (!hasCode(error, 404)) throw error;
   }
 
-  const transaction = await tables.createTransaction({ ttl: 30 });
+  const transaction = await tables.createTransaction({ ttl: 60 });
   try {
     const updatedAt = new Date().toISOString();
     const metric = await tables.incrementRowColumn({

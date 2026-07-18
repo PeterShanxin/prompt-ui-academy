@@ -23,20 +23,43 @@ In **Auth > Settings**:
 
 The application supplies only validated same-origin success and failure URLs. Learning routes are never gated by authentication.
 
-## 3. Create the server API key
+## 3. Create the server API keys
 
-Create one server API key for the standalone Vercel deployment with only these scopes:
+Create a temporary provisioning key with only these scopes:
 
 - `databases.read`
 - `databases.write`
+- `tables.read`
+- `tables.write`
+- `columns.read`
+- `columns.write`
+- `rows.read`
+- `rows.write`
+
+Use it only for `npm run appwrite:setup`, then delete it.
+
+Create a separate runtime key for the standalone Vercel deployment with only these scopes:
+
+- `databases.read`
+- `databases.write`
+- `rows.read`
+- `rows.write`
 - `users.read`
 - `users.write`
 
-The key verifies authenticated JWTs, owns all progress rows, allocates pioneer numbers, returns community bands, and performs account deletion. Never expose it through a `NEXT_PUBLIC_` variable or a client bundle.
+The runtime key owns all progress rows, allocates pioneer numbers, returns community bands, and performs account deletion. Authenticated JWTs are validated separately against Appwrite Auth. Never expose either key through a `NEXT_PUBLIC_` variable or a client bundle.
 
 ## 4. Provision the private database
 
-Set the endpoint, project ID, and API key in the current shell, then run:
+Set the endpoint, project ID, and temporary provisioning key in the current shell, then run:
+
+```bash
+export NEXT_PUBLIC_APPWRITE_ENDPOINT=<regional endpoint>/v1
+export NEXT_PUBLIC_APPWRITE_PROJECT_ID=<project ID>
+export APPWRITE_SETUP_API_KEY=<temporary provisioning key>
+```
+
+Then provision the schema:
 
 ```bash
 npm run appwrite:setup
