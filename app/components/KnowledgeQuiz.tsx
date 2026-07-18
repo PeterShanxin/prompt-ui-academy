@@ -5,16 +5,18 @@ import { quizQuestions } from "../lib/content";
 import { ArrowIcon, ReplayIcon } from "./Icons";
 import { TermPreview } from "./TermPreview";
 import { useI18n } from "./I18n";
+import { useLearningProgress } from "./LearningProgressProvider";
 
 export function KnowledgeQuiz() {
   const [index, setIndex] = useState(0);
   const { pick } = useI18n();
+  const { recordQuizScore } = useLearningProgress();
   const [choice, setChoice] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
   const question = quizQuestions[index];
   const choose = (option: string) => { if (choice) return; setChoice(option); if (option === question.answer) setScore((value) => value + 1); };
-  const next = () => { if (index === quizQuestions.length - 1) { setDone(true); return; } setIndex((value) => value + 1); setChoice(null); };
+  const next = () => { if (index === quizQuestions.length - 1) { recordQuizScore(score, quizQuestions.length); setDone(true); return; } setIndex((value) => value + 1); setChoice(null); };
   const reset = () => { setIndex(0); setChoice(null); setScore(0); setDone(false); };
 
   return (

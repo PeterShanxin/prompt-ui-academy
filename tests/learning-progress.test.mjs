@@ -5,12 +5,28 @@ import {
   calculateCourseProgress,
   createEmptyProgress,
   firstLoginMerge,
+  getAccountMergeKey,
+  getAccountPendingKey,
   getAccountProgressKey,
   getNextLessonId,
   migrateLegacyTerms,
   recordQuizResult,
   setProgressItem,
+  LESSON_IDS,
+  TERM_IDS,
 } from "../app/lib/learning-progress.ts";
+import { curriculum, uiTerms } from "../app/lib/content.ts";
+
+test("account storage namespaces remain isolated by learner", () => {
+  for (const keyFor of [
+    getAccountProgressKey,
+    getAccountMergeKey,
+    getAccountPendingKey,
+  ]) {
+    assert.notEqual(keyFor("user-a"), keyFor("user-b"));
+  }
+  assert.match(getAccountPendingKey("user-a"), /pending:user-a$/);
+});
 
 test("migrates valid legacy term ids without duplicates", () => {
   const migrated = migrateLegacyTerms(
@@ -111,4 +127,12 @@ test("account caches use isolated storage keys", () => {
     "prompt-ui-progress:v2:account:user-a",
   );
   assert.notEqual(getAccountProgressKey("user-a"), getAccountProgressKey("user-b"));
+});
+
+test("progress identifiers match the bilingual learning content", () => {
+  assert.deepEqual(
+    curriculum.flatMap((module) => module.lessons.map((lesson) => lesson.id)),
+    LESSON_IDS,
+  );
+  assert.deepEqual(uiTerms.map((term) => term.id), TERM_IDS);
 });

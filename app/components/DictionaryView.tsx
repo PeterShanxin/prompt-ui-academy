@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { categories, uiTerms, type Category } from "../lib/content";
-import { useLearningProgress } from "./AppShell";
+import { useLearningProgress } from "./LearningProgressProvider";
 import { useI18n } from "./I18n";
 import { TermPreview } from "./TermPreview";
 

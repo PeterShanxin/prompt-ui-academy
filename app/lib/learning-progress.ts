@@ -18,11 +18,11 @@ export const TERM_IDS = [
   "button",
   "modal",
   "toast",
-  "skeleton",
-  "card",
-  "input",
+  "tooltip",
   "tabs",
+  "accordion",
   "toggle",
+  "skeleton",
 ] as const;
 
 export const QUIZ_ID = "ui-vocabulary-v1";
@@ -76,6 +76,10 @@ export function getAccountProgressKey(userId: string): string {
 
 export function getAccountMergeKey(userId: string): string {
   return `prompt-ui-progress:v2:merged:${userId}`;
+}
+
+export function getAccountPendingKey(userId: string): string {
+  return `prompt-ui-progress:v2:pending:${userId}`;
 }
 
 export function migrateLegacyTerms(

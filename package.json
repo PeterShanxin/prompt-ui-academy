@@ -36,6 +36,8 @@
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.3",
+    "@supabase/supabase-js": "2.110.7",
     "drizzle-orm": "0.45.2",
     "next": "16.2.10",
     "react": "19.2.7",
@@ -60,5 +62,5 @@
     "wrangler": "4.111.0"
   },
   "type": "module",
-  "displayName": "\u754c\u9762\u8bdd\u672f"
+  "displayName": "界面话术"
 }

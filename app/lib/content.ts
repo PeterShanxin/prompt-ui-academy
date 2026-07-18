@@ -1,3 +1,5 @@
+import type { LessonId } from "./learning-progress";
+
 export type PreviewKind = "button" | "modal" | "toast" | "tooltip" | "tabs" | "accordion" | "toggle" | "skeleton";
 export type Category = "all" | "navigation" | "input" | "overlay" | "feedback";
 
@@ -12,6 +14,25 @@ export type Term = {
   descriptionEn: string;
   prompt: string;
   promptEn: string;
+};
+
+export type CurriculumLesson = {
+  id: LessonId;
+  title: string;
+  titleEn: string;
+  time: string;
+  timeEn: string;
+  href: string;
+};
+
+type CurriculumModule = {
+  id: string;
+  title: string;
+  titleEn: string;
+  description: string;
+  descriptionEn: string;
+  color: string;
+  lessons: CurriculumLesson[];
 };
 
 export const uiTerms: Term[] = [
@@ -53,7 +74,7 @@ export const precisePrompt = "设计一个居中的登录 Modal Dialog，宽 420
 export const vaguePromptEn = "Make a nice-looking login box. It should feel premium and have some animation.";
 export const precisePromptEn = "Design a centered login Modal Dialog, 420px wide, with a 16px border radius and soft shadow. Include labeled email and password Inputs, plus a full-width blue Primary Button at the bottom. Use a 2px blue focus ring for the Focus state and red helper text for errors. On open, fade the Scrim in over 180ms and animate the Modal with a subtle spring scale.";
 
-export const curriculum = [
+export const curriculum: CurriculumModule[] = [
   {
     id: "01",
     title: "认识界面语言",
@@ -62,9 +83,9 @@ export const curriculum = [
     descriptionEn: "Turn ‘that box’ and ‘the thing on the right’ into precise component names.",
     color: "blue",
     lessons: [
-      { title: "组件、模式与页面结构", titleEn: "Components, patterns, and page structure", time: "4 分钟", timeEn: "4 min", href: "/dictionary" },
-      { title: "导航与输入控件", titleEn: "Navigation and input controls", time: "6 分钟", timeEn: "6 min", href: "/dictionary" },
-      { title: "浮层与反馈", titleEn: "Overlays and feedback", time: "5 分钟", timeEn: "5 min", href: "/dictionary" },
+      { id: "ui-components-patterns-structure", title: "组件、模式与页面结构", titleEn: "Components, patterns, and page structure", time: "4 分钟", timeEn: "4 min", href: "/dictionary" },
+      { id: "ui-navigation-inputs", title: "导航与输入控件", titleEn: "Navigation and input controls", time: "6 分钟", timeEn: "6 min", href: "/dictionary" },
+      { id: "ui-overlays-feedback", title: "浮层与反馈", titleEn: "Overlays and feedback", time: "5 分钟", timeEn: "5 min", href: "/dictionary" },
     ],
   },
   {
@@ -75,9 +96,9 @@ export const curriculum = [
     descriptionEn: "Learn to specify direction, duration, easing, and rhythm across multiple elements.",
     color: "coral",
     lessons: [
-      { title: "进入与退出动效", titleEn: "Enter and exit motion", time: "5 分钟", timeEn: "5 min", href: "/motion" },
-      { title: "Duration 与 Easing", titleEn: "Duration and easing", time: "6 分钟", timeEn: "6 min", href: "/motion" },
-      { title: "Spring 与 Stagger", titleEn: "Spring and stagger", time: "7 分钟", timeEn: "7 min", href: "/motion" },
+      { id: "motion-enter-exit", title: "进入与退出动效", titleEn: "Enter and exit motion", time: "5 分钟", timeEn: "5 min", href: "/motion" },
+      { id: "motion-duration-easing", title: "Duration 与 Easing", titleEn: "Duration and easing", time: "6 分钟", timeEn: "6 min", href: "/motion" },
+      { id: "motion-spring-stagger", title: "Spring 与 Stagger", titleEn: "Spring and stagger", time: "7 分钟", timeEn: "7 min", href: "/motion" },
     ],
   },
   {
@@ -88,9 +109,9 @@ export const curriculum = [
     descriptionEn: "Combine the goal, components, visuals, states, and motion into a controllable instruction.",
     color: "yellow",
     lessons: [
-      { title: "五段式 UI Prompt", titleEn: "The five-part UI prompt", time: "5 分钟", timeEn: "5 min", href: "/lab" },
-      { title: "从模糊要求到精确约束", titleEn: "From vague requests to precise constraints", time: "8 分钟", timeEn: "8 min", href: "/lab" },
-      { title: "小测与复盘", titleEn: "Quiz and review", time: "4 分钟", timeEn: "4 min", href: "/quiz" },
+      { id: "prompt-five-part", title: "五段式 UI Prompt", titleEn: "The five-part UI prompt", time: "5 分钟", timeEn: "5 min", href: "/lab" },
+      { id: "prompt-vague-to-precise", title: "从模糊要求到精确约束", titleEn: "From vague requests to precise constraints", time: "8 分钟", timeEn: "8 min", href: "/lab" },
+      { id: "prompt-quiz-review", title: "小测与复盘", titleEn: "Quiz and review", time: "4 分钟", timeEn: "4 min", href: "/quiz" },
     ],
   },
 ];

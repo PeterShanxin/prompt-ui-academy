@@ -1,6 +1,6 @@
 # Cloud Learning Progress — Software Design Document
 
-**Status:** Proposed for review
+**Status:** Approved
 
 **Date:** 2026-07-18
 

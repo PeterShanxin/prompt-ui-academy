@@ -11,6 +11,9 @@ Notable user-facing changes are documented here. This project follows [Semantic 
 ### Added
 
 - Persistent Simplified Chinese and English switching across every route.
+- Optional Google or email-code accounts for syncing learning progress across devices.
+- Local-first progress for lessons, terms, quiz best score, and Prompt Lab evaluation.
+- Privacy-preserving community milestones and self-service account deletion.
 
 ### Fixed
 
