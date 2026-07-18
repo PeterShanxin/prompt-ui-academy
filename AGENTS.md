@@ -29,3 +29,7 @@ Tests use `node:test` with `node:assert/strict`. Name files `<behavior>.test.mjs
 ## Commit & Pull Request Guidelines
 
 History uses concise imperative subjects and Conventional Commit prefixes for maintenance, such as `chore(deps): update ...`. Keep commits focused. Branch names should describe intent (`feature/new-ui-terms`, `fix/mobile-navigation`). Pull requests must explain learner impact, link relevant issues, list verification performed, and include screenshots or recordings for visible changes. Note responsive and keyboard behavior for interactions, and update `CHANGELOG.md` for user-facing changes. Report security issues through `SECURITY.md`, never public issues.
+
+## Agent Maintenance
+
+Actively update this guide whenever repository changes make its commands, structure, conventions, or contributor expectations incomplete, stale, or misleading.
