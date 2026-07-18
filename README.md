@@ -82,7 +82,7 @@ No account, API key, sample data, or paid service is required for the learning e
 - Tailwind CSS 4（通过 PostCSS）
 - Vinext + Cloudflare Worker（ChatGPT Sites 构建）
 - Vercel 原生 Next.js 构建
-- Supabase Auth + Postgres（可选的跨设备进度同步）
+- Appwrite Cloud Auth + TablesDB（可选的跨设备进度同步）
 
 ## 本地开发
 
@@ -129,7 +129,7 @@ app/
 
 Vercel 会读取仓库根目录的 `vercel.json` 并使用标准 Next.js 输出。
 
-账号同步默认关闭。部署前请按 [Supabase 配置指南](docs/SUPABASE_SETUP.md) 完成迁移、登录方式、回调地址与环境变量配置。
+账号同步默认关闭。部署前请按 [Appwrite 配置指南](docs/APPWRITE_SETUP.md) 完成数据库配置、登录方式、回调地址与环境变量设置。
 
 - Production: <https://prompt-ui-academy.vercel.app>
 - Sites mirror: <https://prompt-ui-academy.petersx.chatgpt.site>

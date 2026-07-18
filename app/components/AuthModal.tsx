@@ -16,6 +16,7 @@ export function AuthModal() {
   const { pick } = useI18n();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [email, setEmail] = useState("");
+  const [emailUserId, setEmailUserId] = useState("");
   const [token, setToken] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [resendDelay, setResendDelay] = useState(0);
@@ -57,11 +58,11 @@ export function AuthModal() {
   const submitEmail = async (event: FormEvent) => {
     event.preventDefault();
     if (codeSent) {
-      await run(() => verifyEmailCode(email.trim(), token.trim()));
+      await run(() => verifyEmailCode(emailUserId, token.trim()));
       return;
     }
     await run(async () => {
-      await sendEmailCode(email.trim());
+      setEmailUserId(await sendEmailCode(email.trim()));
       setCodeSent(true);
       setResendDelay(30);
     });
@@ -69,6 +70,7 @@ export function AuthModal() {
 
   const close = () => {
     setCodeSent(false);
+    setEmailUserId("");
     setToken("");
     setResendDelay(0);
     setError("");
@@ -156,7 +158,7 @@ export function AuthModal() {
             type="button"
             disabled={busy || resendDelay > 0}
             onClick={() => void run(async () => {
-              await sendEmailCode(email.trim());
+              setEmailUserId(await sendEmailCode(email.trim()));
               setResendDelay(30);
             })}
           >
@@ -170,6 +172,7 @@ export function AuthModal() {
             disabled={busy}
             onClick={() => {
               setCodeSent(false);
+              setEmailUserId("");
               setToken("");
               setResendDelay(0);
             }}

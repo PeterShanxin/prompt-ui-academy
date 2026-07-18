@@ -33,13 +33,14 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "validate:artifact": "bash scripts/validate-artifact.sh",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "appwrite:setup": "node scripts/setup-appwrite.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "0.12.3",
-    "@supabase/supabase-js": "2.110.7",
+    "appwrite": "26.2.0",
     "drizzle-orm": "0.45.2",
     "next": "16.2.10",
+    "node-appwrite": "27.0.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

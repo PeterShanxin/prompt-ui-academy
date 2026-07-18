@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("saveCloudState reuses the learner activity timestamp instead of write time", async () => {
+test("cloud progress requests authenticate with a short-lived Appwrite JWT", async () => {
   const source = await readFile(
     new URL("../app/lib/cloud-progress.ts", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /if \(!record\.lastRoute \|\| !record\.lastActivityAt\) return;/);
-  assert.match(source, /last_activity_at: record\.lastActivityAt/);
+  assert.match(source, /account\.createJWT\(\)/);
+  assert.match(source, /Authorization: `Bearer \$\{jwt\}`/);
+  assert.match(source, /body: JSON\.stringify\(\{ record \}\)/);
+  assert.doesNotMatch(source, /body: JSON\.stringify\(\{[^}]*userId/);
 });
 
 test("signed-in sync ignores stale completions after the active user changes", async () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { loadCommunityBand, type CommunityBand } from "../lib/cloud-progress";
-import { getBrowserSupabaseClient } from "../lib/supabase/client";
+import { isCloudProgressEnabled } from "../lib/appwrite/config";
 import { useI18n } from "./I18n";
 
 export function CommunityProof() {
@@ -10,10 +10,9 @@ export function CommunityProof() {
   const [band, setBand] = useState<CommunityBand>("founding");
 
   useEffect(() => {
-    const client = getBrowserSupabaseClient();
-    if (!client) return;
+    if (!isCloudProgressEnabled()) return;
     let active = true;
-    void loadCommunityBand(client)
+    void loadCommunityBand()
       .then((value) => { if (active) setBand(value); })
       .catch(() => undefined);
     return () => { active = false; };

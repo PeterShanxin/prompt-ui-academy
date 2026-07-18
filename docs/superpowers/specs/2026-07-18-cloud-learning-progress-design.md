@@ -2,15 +2,17 @@
 
 **Status:** Approved
 
+**Provider amendment:** Appwrite Cloud approved on 2026-07-18 after Supabase free-project capacity blocked rollout.
+
 **Date:** 2026-07-18
 
 **Initial release surface:** Standalone web application
 
-**Backend:** Supabase Auth and Postgres
+**Backend:** Appwrite Cloud Auth and TablesDB
 
 ## 1. Summary
 
-Prompt UI Academy will remain fully usable without an account. Guest progress will continue to live in browser storage. Learners may optionally sign in with Google or a passwordless email code to save progress to Supabase and resume it across devices.
+Prompt UI Academy will remain fully usable without an account. Guest progress will continue to live in browser storage. Learners may optionally sign in with Google or a passwordless six-digit email code to save progress to Appwrite Cloud and resume it across devices.
 
 The existing learning-path page will become the signed-in progress home. The feature will not add a separate dashboard or gate lessons behind authentication. It will also add truthful, threshold-based community proof near the homepage course call to action. Small totals will use founding-cohort language instead of exposing an unimpressive raw count.
 
@@ -57,9 +59,9 @@ The authentication modal uses the product's warm paper background, ink outlines,
 - Secondary action: email address followed by a one-time verification code.
 - No password fields or password-reset flow.
 - OAuth and email verification return the learner to the exact safe relative route that initiated sign-in.
-- Verified identities with the same email may use Supabase's supported identity-linking behavior. Identities are never merged from an unverified or guessed email.
+- Appwrite reuses an existing verified account when email OTP is requested for its email. OAuth identities follow Appwrite's supported identity rules; the application never merges identities from an unverified or guessed email.
 
-The standalone deployment uses Supabase's supported PKCE/SSR session pattern. Authentication secrets and the Supabase service-role key remain server-only. The public client key may be used in the browser with row-level security enabled.
+The standalone deployment uses Appwrite's browser session flow. The browser SDK handles Google and email OTP sessions and creates short-lived JWTs for application-owned progress requests. The Appwrite API key remains server-only and narrowly scoped to database and user operations. Progress tables grant no browser permissions.
 
 ### 4.3 Signed-in experience
 
@@ -121,7 +123,8 @@ The feature is divided into focused units:
 - `ProgressProvider`: exposes canonical progress, derived percentage, mutations, and sync state.
 - `ProgressRepository`: stable interface for loading, mutating, and merging progress.
 - `LocalProgressRepository`: owns versioned guest and account-scoped browser records.
-- `SupabaseProgressRepository`: owns authenticated database reads, writes, and merge calls.
+- `AppwriteProgressRepository`: owns short-lived JWT creation and authenticated application API calls.
+- Appwrite server store: derives identity from the JWT, validates bounded payloads, and owns database transactions.
 - Account UI: auth modal, account menu, save-progress prompt, and sync-status indicator.
 - Progress UI: learning overview, completion controls, next-lesson recommendation, and quiz integration.
 - Community metric client: reads only the public band key and maps it to localized copy.
@@ -136,10 +139,10 @@ When disabled:
 
 - local guest progress works normally;
 - account actions are absent;
-- no Supabase network call is made;
+- no Appwrite network call is made;
 - both build and test targets still compile the cloud adapter.
 
-An early implementation spike must prove the chosen Supabase session helpers compile under both `next build` and `vinext build`. If an SSR helper is incompatible with Vinext, the adapter boundary must isolate it behind standalone-only route modules without weakening the standalone session model.
+An early implementation spike must prove both Appwrite SDKs compile under `next build` and `vinext build`. Server SDK usage stays inside standalone-only route modules; ChatGPT Sites retains the local-only client path.
 
 ## 7. Data model
 
@@ -147,48 +150,33 @@ An early implementation spike must prove the chosen Supabase session helpers com
 
 | Column | Type | Rule |
 | --- | --- | --- |
-| `user_id` | UUID | Primary key; references `auth.users(id)` with cascade delete |
-| `pioneer_number` | BIGINT | Unique, monotonic sequence; never reused |
-| `created_at` | TIMESTAMPTZ | Server default |
+| Row ID | Appwrite user ID | One server-created row per initialized learner |
+| `pioneer_number` | Integer | Unique, monotonic cumulative allocation; never reused |
+| `created_at` | Datetime | Server timestamp |
 
-An idempotent `ensure_learner_profile` database function creates this row during the first authenticated cloud-progress initialization. This avoids numbering unverified or abandoned email signups. The function derives identity from `auth.uid()`, allocates the pioneer number, and updates the cumulative community metric in one transaction. Email and provider profile data remain in Supabase Auth and are not duplicated here.
+An idempotent server store creates this row during the first authenticated cloud-progress initialization. This avoids numbering unverified or abandoned email signups. The route derives identity from the verified Appwrite JWT, then increments the cumulative metric, assigns that number, updates the band, and creates the profile in one TablesDB transaction. Email and provider profile data remain in Appwrite Auth and are not duplicated here.
 
-### 7.2 `progress_items`
-
-| Column | Type | Rule |
-| --- | --- | --- |
-| `user_id` | UUID | References `learner_profiles(user_id)` with cascade delete |
-| `kind` | TEXT | `lesson`, `term`, `quiz`, or `lab` |
-| `item_id` | TEXT | Stable content identifier, maximum 80 characters |
-| `completed` | BOOLEAN | Current completion/mastery state |
-| `best_score` | INTEGER | Nullable; quiz-only and constrained to the quiz maximum |
-| `completed_at` | TIMESTAMPTZ | Nullable; server timestamp for latest completion |
-| `updated_at` | TIMESTAMPTZ | Server timestamp for conflict ordering |
-
-Primary key: `(user_id, kind, item_id)`.
-
-Rows are retained when a completion is undone so the false state can synchronize across devices. Check constraints reject unknown kinds, invalid identifier lengths, and impossible scores.
-
-### 7.3 `learner_state`
+### 7.2 `progress_records`
 
 | Column | Type | Rule |
 | --- | --- | --- |
-| `user_id` | UUID | Primary key with cascade delete |
-| `last_route` | TEXT | Allowed learning route only |
-| `last_activity_at` | TIMESTAMPTZ | Server timestamp |
-| `schema_version` | INTEGER | Current progress payload version |
-| `updated_at` | TIMESTAMPTZ | Server timestamp |
+| Row ID | Appwrite user ID | One private record per learner |
+| `payload` | String, max 32 KiB | Versioned progress items, last route, and last activity |
+| `schema_version` | Integer | Current supported version only |
+| `updated_at` | Datetime | Server write timestamp |
 
-### 7.4 `public_metrics`
+The application API rejects malformed versions, unknown item IDs, more than 64 items, impossible quiz scores, unsafe routes, oversized JSON, and timestamps more than five minutes in the future. The server preserves the maximum quiz score. False completion states remain in the payload so undo actions synchronize across devices.
+
+### 7.3 `community_metrics`
 
 | Column | Type | Rule |
 | --- | --- | --- |
-| `key` | TEXT | Primary key; initially `learner_milestone` |
-| `cumulative_verified_accounts` | BIGINT | Private monotonic count, incremented during first profile creation |
-| `band_key` | TEXT | One of the defined public bands |
-| `updated_at` | TIMESTAMPTZ | Server timestamp |
+| Row ID | String | `learner_milestone` |
+| `cumulative_verified_accounts` | Integer | Private monotonic count, incremented during first profile creation |
+| `band_key` | String | One of the defined public bands |
+| `updated_at` | Datetime | Server timestamp |
 
-Raw account counts and pioneer numbers are not publicly selectable. A narrow database function returns only `band_key`. Milestone promotion is monotonic.
+All three tables have empty client permissions. Raw account counts and pioneer numbers are available only to the server key. A narrow cached application route returns only `band_key`. Milestone promotion is monotonic.
 
 ## 8. Local storage model
 
@@ -197,9 +185,9 @@ Existing `ui-language-progress` data is migrated into a new versioned guest reco
 Logical storage namespaces:
 
 - guest record;
-- authenticated cache keyed by Supabase user ID;
-- first-login merge marker keyed by Supabase user ID;
-- bounded offline mutation queue keyed by Supabase user ID.
+- authenticated cache keyed by Appwrite user ID;
+- first-login merge marker keyed by Appwrite user ID;
+- bounded offline mutation queue keyed by Appwrite user ID.
 
 Only the active namespace is rendered. Signing out removes the signed-in namespace from active memory, clears its local account cache and queue, and restores the separate guest record. A second learner on the same device never sees the previous learner's progress.
 
@@ -217,10 +205,10 @@ The payload contains a schema version, progress items, last safe route, and loca
 ### 9.2 First authenticated merge
 
 1. Authentication completes and returns to a validated relative route.
-2. Client invokes `ensure_learner_profile`; repeat calls return the existing profile without changing counters.
+2. Client sends a short-lived Appwrite JWT to the progress merge route; the route derives the user ID and idempotently ensures the learner profile.
 3. Client loads the guest record and the current cloud record.
-4. Client calls one authenticated `merge_guest_progress` database function with the bounded guest payload.
-5. The function validates ownership and payload limits, then runs one transaction.
+4. Client sends one authenticated merge request with the bounded guest payload.
+5. The server validates identity, payload limits, stable content IDs, routes, and timestamps before writing.
 6. Existing cloud and guest completion states merge additively for first import; a guest completion never erases a cloud completion.
 7. Best quiz score becomes the maximum valid score.
 8. Last activity becomes the newest valid activity.
@@ -232,8 +220,8 @@ The guest record remains separate so it can be restored after logout, but it is 
 ### 9.3 Signed-in mutation
 
 1. UI applies the mutation optimistically to the account-scoped cache.
-2. Repository upserts the item under the authenticated session.
-3. Server assigns `updated_at` and returns the canonical row.
+2. Repository sends the bounded versioned record with a short-lived JWT.
+3. Server derives ownership, preserves the maximum quiz score, assigns the record write timestamp, and returns the canonical record.
 4. Client replaces the optimistic row and shows **Synced**.
 
 For ordinary signed-in edits, the last server-accepted action wins. Quiz score is the exception: the server stores the maximum score. Concurrent edits to the same completion on two devices are rare and deterministic under server acceptance order.
@@ -252,19 +240,19 @@ If the learner requests sign-out while mutations remain unsynced, the account me
 
 ## 10. Security and privacy
 
-- Row-level security is enabled on every learner-data table.
-- Authenticated learners may select, insert, update, and delete only rows where `user_id = auth.uid()`.
+- Learner-data tables grant no browser permissions; only the narrowly scoped server API key can access them.
+- Every private route validates an Appwrite JWT and derives the Appwrite user ID rather than accepting a client-supplied owner ID.
 - Clients cannot assign or modify pioneer numbers.
-- The guest-merge function derives identity from `auth.uid()` and ignores any client-supplied user ID.
-- Any `SECURITY DEFINER` function uses a fixed `search_path`, explicit grants, bounded inputs, and no dynamic SQL.
-- The public community function returns a band key only.
+- The guest-merge route validates the full bounded payload and ignores any client-supplied user ID.
+- Pioneer allocation and milestone promotion commit in one Appwrite transaction.
+- The public community route returns a band key only.
 - OAuth return paths accept only safe application-relative routes and reject reserved auth paths.
-- Service-role credentials exist only in protected server environment variables.
-- Auth endpoints use Supabase rate limits; the UI gives neutral responses that do not reveal whether an email is registered.
+- The Appwrite API key exists only in protected server environment variables and has database/user scopes only.
+- Auth endpoints use Appwrite rate limits; the UI gives neutral responses that do not reveal whether an email is registered.
 - Logs and analytics must not contain access tokens, one-time codes, email addresses, or complete progress payloads.
 - Data collection is limited to verified account identity and learning progress required by the feature.
 
-Account deletion requires an authenticated confirmation step. A server-only endpoint deletes the Supabase Auth user with service-role authority; database cascades remove private progress. The browser then clears the account-scoped cache, signs out, and restores guest state. The consumed pioneer number and already-achieved public milestone remain as cumulative, non-identifying counters.
+Account deletion requires an authenticated confirmation step. A server-only endpoint verifies a fresh JWT, disables the Appwrite user, removes private progress/profile rows in a database transaction, and then deletes the identity. If database removal fails, the route re-enables the user when safe. The browser clears the account-scoped cache and restores guest state. The consumed pioneer number and already-achieved public milestone remain as cumulative, non-identifying counters.
 
 ## 11. UI states and copy
 
@@ -308,14 +296,14 @@ Provider logs and structured server errors are sufficient initially. A new analy
 
 ## 14. Rollout
 
-1. Create separate Supabase development and production projects.
-2. Add schema, constraints, triggers, functions, and row-level-security policies through reviewed migrations.
+1. Create separate Appwrite development and production projects when paid project capacity permits; an isolated preview project is preferred.
+2. Provision the three server-only tables with the checked-in idempotent setup script and a least-privilege API key.
 3. Add the repository boundary and migrate existing browser progress with cloud sync disabled.
 4. Prove both production build targets compile.
-5. Enable cloud sync only in a Vercel preview connected to the development Supabase project.
+5. Enable cloud sync only in a Vercel preview connected to the development Appwrite project.
 6. Validate Google, email-code, callback, logout, deletion, offline recovery, and two-device synchronization.
-7. Run security-policy tests using two distinct users and unauthenticated access.
-8. Enable production Supabase configuration in Vercel while leaving ChatGPT Sites disabled.
+7. Run route-isolation tests using two distinct users, invalid JWTs, and unauthenticated access.
+8. Enable production Appwrite configuration in Vercel while leaving ChatGPT Sites disabled.
 9. Observe auth, merge, and write failures before promoting community copy beyond the founding band.
 
 Any visible-behavior patch after final review resets the repository's manual-validation gate.
@@ -334,16 +322,16 @@ Any visible-behavior patch after final review resets the repository's manual-val
 - community band copy mapping;
 - offline queue deduplication.
 
-### Database tests
+### Database and route tests
 
-- RLS denies unauthenticated private reads and writes;
-- user A cannot access user B rows;
-- merge function always uses `auth.uid()`;
-- merge is atomic and idempotent;
-- score and identifier constraints reject invalid input;
+- tables expose no browser permissions;
+- user A's JWT cannot access user B rows;
+- private routes derive identity from the verified JWT;
+- first profile allocation is atomic and idempotent;
+- payload, score, timestamp, size, and identifier constraints reject invalid input;
 - pioneer numbers are unique and never reused;
 - public function exposes only a valid band key;
-- account deletion cascades through private rows.
+- account deletion disables the user, removes private rows, and then deletes the identity.
 
 ### Component and integration tests
 
@@ -383,7 +371,7 @@ Google OAuth itself is validated against a real preview callback URL. Automated 
 - Homepage community copy follows the approved thresholds without exposing a small exact count.
 - Pioneer number is private, monotonic, and never reused.
 - Account deletion removes private account and progress data.
-- RLS isolation and merge-function ownership tests pass.
+- JWT route isolation and server-only table permission tests pass.
 - Standalone Vercel cloud sync works while ChatGPT Sites retains local-only behavior.
 - Lint, both production builds, automated tests, and final human validation pass before release.
 
@@ -391,17 +379,18 @@ Google OAuth itself is validated against a real preview callback URL. Automated 
 
 | Risk | Mitigation |
 | --- | --- |
-| Supabase session helpers fail under Vinext compilation | Prove both builds first; isolate standalone auth behind adapter and route boundaries. |
+| Appwrite server SDK fails under Vinext compilation | Prove both builds first; keep server SDK imports inside standalone route and store boundaries. |
 | Guest data overwrites newer cloud data | First import is additive; quiz uses maximum; server returns canonical state. |
 | Offline UI falsely promises cloud safety | Never show **Synced** before server confirmation; retain retryable local queue. |
 | Shared-device data leak | Separate namespaces; clear account cache on logout/deletion; test account switching. |
 | Public learner count looks weak or misleading | Return approved bands only and describe cumulative verified accounts accurately. |
-| RLS or privileged function exposes data | Default-deny policies, fixed-search-path functions, explicit grants, and two-user security tests. |
+| Server route or API key exposes data | Empty client permissions, JWT-derived ownership, least-privilege key scopes, bounded responses, and two-user security tests. |
 | Curriculum changes break percentages | Stable lesson IDs and versioned migration rules; removed lessons require an explicit mapping. |
 | Auth complexity crowds the learning product | Optional modal, one quiet prompt, integrated progress page, no dashboard. |
 
 ## 18. Reference documentation
 
-- [Supabase Auth overview](https://supabase.com/docs/guides/auth)
-- [Supabase Google login](https://supabase.com/docs/guides/auth/social-login/auth-google)
-- [Supabase identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking)
+- [Appwrite Auth overview](https://appwrite.io/docs/products/auth)
+- [Appwrite email OTP](https://appwrite.io/docs/products/auth/email-otp)
+- [Appwrite OAuth 2 login](https://appwrite.io/docs/products/auth/oauth2)
+- [Appwrite database transactions](https://appwrite.io/docs/products/databases/transactions)

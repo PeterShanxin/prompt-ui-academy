@@ -11,9 +11,9 @@ Prompt UI Academy is a statically rendered Next.js learning product with small, 
 
 ## State model
 
-The application is local-first. A versioned learning-progress record is stored in `localStorage`, so every lesson remains available without an account or network connection. Signed-in learners can optionally sync that record through Supabase.
+The application is local-first. A versioned learning-progress record is stored in `localStorage`, so every lesson remains available without an account or network connection. Signed-in learners can optionally sync that record through Appwrite Cloud.
 
-Supabase Auth supports Google and email verification codes. Public tables use row-level security keyed by `auth.uid()`, while bounded security-definer functions handle profile creation, additive first-login merge, and qualitative community bands. Account deletion is performed by a server-only route. See [Supabase setup](SUPABASE_SETUP.md) for operational configuration.
+Appwrite Auth supports Google and six-digit email verification codes. Progress tables have no client permissions: standalone Next.js routes validate a short-lived Appwrite JWT, derive the user identity, and then use a narrowly scoped server key. Appwrite transactions allocate pioneer numbers and cumulative community milestones atomically. Public responses expose only a qualitative community band. See [Appwrite setup](APPWRITE_SETUP.md) for operational configuration.
 
 Cloud functionality is gated by `NEXT_PUBLIC_CLOUD_PROGRESS_ENABLED`. Missing or disabled configuration removes account controls without weakening the guest experience.
 
@@ -24,7 +24,7 @@ The source supports two production targets:
 - `next build` for Vercel;
 - `vinext build` for the Cloudflare Worker artifact used by ChatGPT Sites.
 
-Most route content is statically rendered. Components that require browser state use explicit `"use client"` boundaries. Auth callback and account-deletion handlers are the only dynamic server routes.
+Most route content is statically rendered. Components that require browser state use explicit `"use client"` boundaries. Auth callback, progress, community, and account-deletion handlers are dynamic server routes used only by the standalone deployment.
 
 ## Accessibility
 

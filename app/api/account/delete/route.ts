@@ -1,53 +1,62 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { getPublicSupabaseConfig } from "../../../lib/supabase/config";
+import { AppwriteHttpError, requireAppwriteUser } from "../../../lib/appwrite/auth";
+import {
+  APPWRITE_DATABASE_ID,
+  APPWRITE_PROFILES_TABLE_ID,
+  APPWRITE_PROGRESS_TABLE_ID,
+  createAppwriteAdminServices,
+} from "../../../lib/appwrite/server";
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(request: Request) {
-  const config = getPublicSupabaseConfig();
-  const secretKey =
-    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!config || !secretKey) {
+  let userId: string | null = null;
+  let dataDeleted = false;
+  const services = createAppwriteAdminServices();
+  try {
+    if (!services) throw new AppwriteHttpError(503, "Account deletion is unavailable.");
+    userId = (await requireAppwriteUser(request)).userId;
+    await services.users.updateStatus({ userId, status: false });
+
+    const existingTables: string[] = [];
+    for (const tableId of [APPWRITE_PROGRESS_TABLE_ID, APPWRITE_PROFILES_TABLE_ID]) {
+      try {
+        await services.tables.getRow({ databaseId: APPWRITE_DATABASE_ID, tableId, rowId: userId });
+        existingTables.push(tableId);
+      } catch (error) {
+        if (!hasCode(error, 404)) throw error;
+      }
+    }
+    if (existingTables.length) {
+      const transaction = await services.tables.createTransaction({ ttl: 30 });
+      for (const tableId of existingTables) {
+        await services.tables.deleteRow({
+          databaseId: APPWRITE_DATABASE_ID,
+          tableId,
+          rowId: userId,
+          transactionId: transaction.$id,
+        });
+      }
+      await services.tables.updateTransaction({ transactionId: transaction.$id, commit: true });
+    }
+    dataDeleted = true;
+    await services.users.delete({ userId });
+    return new NextResponse(null, {
+      status: 204,
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    if (services && userId && !dataDeleted) {
+      try { await services.users.updateStatus({ userId, status: true }); } catch { /* best effort */ }
+    }
+    const status = error instanceof AppwriteHttpError ? error.status : 502;
     return NextResponse.json(
-      { error: "Account deletion is not configured." },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
+      { error: status === 401 ? "Authentication required." : "Account deletion failed." },
+      { status, headers: { "Cache-Control": "no-store" } },
     );
   }
+}
 
-  const authorization = request.headers.get("authorization");
-  const token = authorization?.match(/^Bearer (.+)$/i)?.[1];
-  if (!token) {
-    return NextResponse.json(
-      { error: "Authentication required." },
-      { status: 401, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  const verifier = createClient(config.url, config.publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error: userError } = await verifier.auth.getUser(token);
-  if (userError || !data.user) {
-    return NextResponse.json(
-      { error: "Authentication required." },
-      { status: 401, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  const admin = createClient(config.url, secretKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { error } = await admin.auth.admin.deleteUser(data.user.id);
-  if (error) {
-    return NextResponse.json(
-      { error: "Account deletion failed." },
-      { status: 502, headers: { "Cache-Control": "no-store" } },
-    );
-  }
-
-  return new NextResponse(null, {
-    status: 204,
-    headers: { "Cache-Control": "no-store" },
-  });
+function hasCode(error: unknown, code: number): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

@@ -23,9 +23,9 @@ export function AccountControls() {
     );
   }
 
-  const initials = (user.user_metadata?.full_name as string | undefined)?.trim().slice(0, 1)
-    ?? user.email?.slice(0, 1).toUpperCase()
-    ?? "✓";
+  const initials = user.name.trim().slice(0, 1)
+    || user.email.slice(0, 1).toUpperCase()
+    || "✓";
   const unsynced = syncStatus === "syncing" || syncStatus === "offline" || syncStatus === "error";
 
   const run = async (action: () => Promise<void>) => {

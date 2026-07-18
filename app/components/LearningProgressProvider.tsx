@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ensureLearnerProfile,
   loadCloudProgress,
   mergeGuestProgress,
   saveCloudProgress,
@@ -38,7 +37,7 @@ import {
   type LearningProgressRecord,
   type LessonId,
 } from "../lib/learning-progress";
-import { getBrowserSupabaseClient } from "../lib/supabase/client";
+import { getBrowserAppwriteAccount } from "../lib/appwrite/client";
 import { useAuth } from "./AuthProvider";
 
 export type SyncStatus =
@@ -77,7 +76,7 @@ export function useLearningProgress() {
 
 export function LearningProgressProvider({ children }: { children: ReactNode }) {
   const { user, status: authStatus } = useAuth();
-  const client = useMemo(() => getBrowserSupabaseClient(), []);
+  const account = useMemo(() => getBrowserAppwriteAccount(), []);
   const [record, setRecord] = useState<LearningProgressRecord>(createEmptyProgress);
   const [guestRecord, setGuestRecord] = useState<LearningProgressRecord>(createEmptyProgress);
   const [guestRestored, setGuestRestored] = useState(false);
@@ -145,7 +144,7 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
     }
     previousUserId.current = nextUserId;
 
-    if (!user || !client) {
+    if (!user || !account) {
       const reset = window.setTimeout(() => {
         setProfile(null);
         if (authStatus !== "loading") {
@@ -178,23 +177,25 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
         // Cloud load below remains canonical.
       }
       try {
-        const learner = await ensureLearnerProfile(client);
         const mergeKey = getAccountMergeKey(user.id);
+        let snapshot;
         if (window.localStorage.getItem(mergeKey) !== "true") {
-          await mergeGuestProgress(client, guestRecord);
+          snapshot = await mergeGuestProgress(account, guestRecord);
           window.localStorage.setItem(mergeKey, "true");
+        } else {
+          snapshot = await loadCloudProgress(account);
         }
-        let cloud = await loadCloudProgress(client, user.id);
+        let cloud = snapshot.record;
         const pending = parseProgressRecord(
           window.localStorage.getItem(getAccountPendingKey(user.id)),
         );
         if (pending.items.length || pending.lastRoute) {
           replaceRecord(pending);
-          cloud = await saveCloudProgress(client, user.id, pending);
+          cloud = await saveCloudProgress(account, pending);
           window.localStorage.removeItem(getAccountPendingKey(user.id));
         }
         if (!active) return;
-        setProfile(learner);
+        setProfile(snapshot.profile);
         replaceRecord(cloud);
         persist(cloud, user.id);
         setSyncStatus("synced");
@@ -207,11 +208,11 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
     return () => {
       active = false;
     };
-  }, [authStatus, client, guestRecord, guestRestored, persist, replaceRecord, user]);
+  }, [account, authStatus, guestRecord, guestRestored, persist, replaceRecord, user]);
 
   const queueCloudSync = useCallback(
     (snapshot: LearningProgressRecord) => {
-      if (!user || !client) return;
+      if (!user || !account) return;
       const userId = user.id;
       const version = ++latestSync.current;
       const contextVersion = syncContext.current;
@@ -219,7 +220,7 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
       syncQueue.current = syncQueue.current
         .catch(() => undefined)
         .then(async () => {
-          const canonical = await saveCloudProgress(client, userId, snapshot);
+          const canonical = await saveCloudProgress(account, snapshot);
           if (
             version === latestSync.current &&
             contextVersion === syncContext.current &&
@@ -242,7 +243,7 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
           }
         });
     },
-    [client, persist, replaceRecord, user],
+    [account, persist, replaceRecord, user],
   );
 
   const apply = useCallback(
