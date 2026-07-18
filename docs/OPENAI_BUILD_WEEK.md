@@ -11,8 +11,11 @@
 | Production | <https://prompt-ui-academy.vercel.app> |
 | Licence | MIT |
 | Primary Codex project session | `019f6744-5c3f-7360-9717-2fcd3f6f5235` |
+| Supporting repository-maintenance session | `019f7416-39cb-7d52-9406-f02a953bf00b` |
 
 Prompt UI Academy was newly conceived and built during the OpenAI Build Week submission period. The primary Codex session above contains the original product idea, implementation work, iteration, debugging, deployment, public-repository preparation, and dependency maintenance.
+
+The supporting session records repository governance and housekeeping only: contributor and agent guidance, the standard worktree-to-review-to-human-approval workflow, and `main` branch protection with required CI and an administrator bypass. It did not add product functionality.
 
 ## Problem and intended learners
 
@@ -58,6 +61,7 @@ Times below use UTC. The Codex/Sites checkpoints preserve the original build seq
 | 2026-07-16 09:48 | Merged compatible Next.js and React patch releases after CI passed. | [Dependabot PR #1](https://github.com/PeterShanxin/prompt-ui-academy/pull/1); [commit `df09fa99`](https://github.com/PeterShanxin/prompt-ui-academy/commit/df09fa99) | Maintenance |
 | 2026-07-16 09:49 to 09:58 | Rejected incompatible Node type, TypeScript, and ESLint major upgrades; manually applied and tested the compatible development updates from a stale grouped PR; configured Dependabot to avoid unsupported major-version PRs. | [PR #2](https://github.com/PeterShanxin/prompt-ui-academy/pull/2), [#3](https://github.com/PeterShanxin/prompt-ui-academy/pull/3), [#4](https://github.com/PeterShanxin/prompt-ui-academy/pull/4), [#5](https://github.com/PeterShanxin/prompt-ui-academy/pull/5); [commit `ed85f8ea`](https://github.com/PeterShanxin/prompt-ui-academy/commit/ed85f8ea) | Maintenance |
 | 2026-07-16 10:01 | Merged the final safe patch group after CI passed. | [PR #6](https://github.com/PeterShanxin/prompt-ui-academy/pull/6); [commit `e200f2bb`](https://github.com/PeterShanxin/prompt-ui-academy/commit/e200f2bb) | Maintenance |
+| 2026-07-18 07:18 to 07:27 | Added an actively maintained contributor and agent guide, documented the standard worktree, review, human-validation, merge, and cleanup workflow, and protected `main` with required CI and review while retaining administrator bypass. | Supporting Codex session `019f7416-39cb-7d52-9406-f02a953bf00b`; `AGENTS.md`; GitHub branch protection settings | Documentation and repository governance |
 
 ## Evidence summary
 
@@ -73,6 +77,7 @@ Times below use UTC. The Codex/Sites checkpoints preserve the original build seq
 | Public deployment and repository | Public Vercel deployment, MIT repository, build configuration, and README | Infrastructure | High |
 | CI and dual build verification | `.github/workflows/ci.yml`, Vercel build, Vinext/Sites build, and regression tests | Infrastructure | High |
 | Dependabot handling | PRs #1 through #6, compatibility review, and dependency commits | Maintenance | High |
+| Contributor workflow and protected `main` | Supporting maintenance session, `AGENTS.md`, and live GitHub branch protection settings | Documentation and repository governance | High |
 
 ## Technical architecture
 
@@ -120,6 +125,7 @@ npm test
 - Setup and testing instructions: ready
 - Codex and GPT-5.6 collaboration record: ready
 - Primary Codex session ID: recorded
+- Supporting repository-maintenance session ID: recorded
 - English Devpost copy: see [DEVPOST_SUBMISSION.md](DEVPOST_SUBMISSION.md)
 - Demo storyboard and narration: see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)
 - Public YouTube upload: manual action required before submission
