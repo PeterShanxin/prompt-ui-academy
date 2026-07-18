@@ -39,8 +39,17 @@ test("bounds guest merge payloads and derives identity from auth", async () => {
 
   assert.match(sql, /pg_column_size\(payload\) > 32768/i);
   assert.match(sql, /jsonb_array_length\(payload -> 'items'\) > 64/i);
+  assert.match(sql, /\(payload ->> 'schemaVersion'\)::integer <> 2/i);
   assert.match(sql, /current_user_id uuid := \(select auth\.uid\(\)\)/i);
   assert.doesNotMatch(sql, /user_id uuid := .*payload/i);
   assert.match(sql, /excluded\.last_activity_at >= public\.learner_state\.last_activity_at/i);
   assert.match(sql, /activity_at > now\(\) \+ interval '5 minutes'/i);
+});
+
+test("returns a stable profile object and keeps quiz best scores monotonic", async () => {
+  const sql = await readFile(migrationUrl, "utf8");
+
+  assert.match(sql, /function public\.ensure_learner_profile\(\)\s+returns jsonb/i);
+  assert.match(sql, /new\.best_score := greatest\(old\.best_score, new\.best_score\)/i);
+  assert.match(sql, /kind = 'quiz' and best_score is not null and best_score between 0 and 4/i);
 });

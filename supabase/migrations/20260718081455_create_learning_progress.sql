@@ -34,7 +34,7 @@ create table public.progress_items (
   ),
   completed boolean not null default false,
   best_score integer check (
-    (kind = 'quiz' and best_score between 0 and 4)
+    (kind = 'quiz' and best_score is not null and best_score between 0 and 4)
     or (kind <> 'quiz' and best_score is null)
   ),
   completed_at timestamptz,
@@ -85,6 +85,9 @@ set search_path = ''
 as $$
 begin
   new.updated_at := now();
+  if tg_op = 'UPDATE' and new.kind = 'quiz' then
+    new.best_score := greatest(old.best_score, new.best_score);
+  end if;
   if tg_op = 'INSERT' and new.completed then
     new.completed_at := now();
   elsif tg_op = 'UPDATE' and new.completed and not old.completed then
@@ -178,7 +181,7 @@ to authenticated
 using ((select auth.uid()) = user_id);
 
 create or replace function public.ensure_learner_profile()
-returns public.learner_profiles
+returns jsonb
 language plpgsql
 security definer
 set search_path = ''
@@ -212,7 +215,11 @@ begin
     where user_id = current_user_id;
   end if;
 
-  return profile;
+  return jsonb_build_object(
+    'user_id', profile.user_id,
+    'pioneer_number', profile.pioneer_number,
+    'created_at', profile.created_at
+  );
 end;
 $$;
 
@@ -237,6 +244,10 @@ begin
   end if;
   if jsonb_typeof(payload) <> 'object' or pg_column_size(payload) > 32768 then
     raise exception 'Invalid progress payload' using errcode = '22023';
+  end if;
+  if jsonb_typeof(payload -> 'schemaVersion') <> 'number'
+    or (payload ->> 'schemaVersion')::integer <> 2 then
+    raise exception 'Unsupported progress schema' using errcode = '22023';
   end if;
   if jsonb_typeof(payload -> 'items') <> 'array'
     or jsonb_array_length(payload -> 'items') > 64 then
