@@ -39,6 +39,7 @@ PeterShanxin made the key product and learning-design decisions: begin with visu
 The Prompt Lab is intentionally a deterministic, browser-local teaching simulation. It uses keyword checks to make prompt specificity visible and does not call an OpenAI model at runtime.
 
 - **Primary Codex project session:** `019f6744-5c3f-7360-9717-2fcd3f6f5235`
+- **Supporting repository-maintenance session:** `019f7416-39cb-7d52-9406-f02a953bf00b`
 - [Build Week development record](docs/OPENAI_BUILD_WEEK.md)
 - [Devpost submission draft](docs/DEVPOST_SUBMISSION.md)
 - [Sub-three-minute demo script](docs/DEMO_SCRIPT.md)

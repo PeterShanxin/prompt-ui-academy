@@ -71,11 +71,11 @@ Target length: **2 minutes 50 seconds**. Keep the finished public YouTube video 
 
 ### 2:14 to 2:39 - GPT-5.6, Codex, and entrant decisions
 
-**Screen:** Show `docs/OPENAI_BUILD_WEEK.md`, then briefly show the primary session ID and chronological development log.
+**Screen:** Show `docs/OPENAI_BUILD_WEEK.md`, then briefly show the primary and supporting session IDs and chronological development log.
 
 **Narration:**
 
-> I made the key product decisions: start with visual UI vocabulary, add motion experiments and quizzes, compare vague and precise prompts, expand the first single page into focused routes, and add bilingual support. GPT-5.6 and Codex turned that direction into the architecture, implementation, content, interactions, tests, debugging, documentation, and deployments. The primary session and dated build log preserve the development history.
+> I made the key product decisions: start with visual UI vocabulary, add motion experiments and quizzes, compare vague and precise prompts, expand the first single page into focused routes, and add bilingual support. GPT-5.6 and Codex turned that direction into the architecture, implementation, content, interactions, tests, debugging, documentation, and deployments. The primary session preserves that build history; a separately labeled supporting session records later repository governance and housekeeping.
 
 ### 2:39 to 2:54 - Repository, tests, and deployment
 

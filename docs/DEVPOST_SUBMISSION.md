@@ -20,6 +20,7 @@ Education
 - Repository: <https://github.com/PeterShanxin/prompt-ui-academy>
 - Licence: MIT
 - Primary Codex project session: `019f6744-5c3f-7360-9717-2fcd3f6f5235`
+- Supporting repository-maintenance session: `019f7416-39cb-7d52-9406-f02a953bf00b`
 
 ## Short description
 
@@ -70,6 +71,8 @@ GPT-5.6 and Codex accelerated the work from concept to production by:
 - running lint, production builds, tests, deployment checks, and compatibility reviews for dependency updates.
 
 This collaboration kept product judgment with the entrant while using Codex to compress the implementation, testing, and release loop.
+
+A separate supporting Codex session documented contributor and agent guidance, established the worktree, review, human-approval, and cleanup workflow, and configured `main` branch protection with required CI and an administrator bypass. That session was repository housekeeping only and did not add product functionality.
 
 ## How it was built
 
