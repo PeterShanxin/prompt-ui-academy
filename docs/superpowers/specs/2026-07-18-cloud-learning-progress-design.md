@@ -49,7 +49,7 @@ The header shows the existing progress indicator and a compact **Save progress**
 
 > Saved on this device. Sign in to continue anywhere.
 
-The message does not interrupt the activity. A dismissal lasts for the current visit and the message is not repeatedly shown after every progress change.
+The message stays within the viewport after a meaningful completion so it is visible even when the learner is deep in a lesson. It does not interrupt the activity. A dismissal lasts for the current visit and the message is not repeatedly shown after every progress change.
 
 ### 4.2 Authentication
 
@@ -74,7 +74,7 @@ After sign-in, the header replaces **Save progress** with a compact avatar or in
 - mastered-term count;
 - best quiz score.
 
-The account menu contains the learner's verified email, sync state, sign out, and delete-account actions. No separate dashboard is introduced.
+The closed account control exposes sync state with a compact status indicator. The account menu contains the learner's verified email, full sync copy, sign out, and a feedback/support link. Destructive deletion is nested one level deeper under **Account settings**, with its existing confirmation. The menu closes on outside interaction and Escape. No separate dashboard is introduced.
 
 ### 4.4 Completion behavior
 
@@ -100,14 +100,16 @@ Dictionary term mastery remains independently toggleable and visible, but does n
 
 The homepage fetches a safe community band near the primary course call to action. It never receives a list of users or a small exact count.
 
-| Cumulative verified accounts | Public copy |
-| --- | --- |
-| 0–24 | Join the founding learners. |
-| 25–99 | Join a growing group of early learners. |
-| 100–999 | Join 100+ learners. |
-| 1,000–9,999 | Join 1,000+ learners. |
-| 10,000–99,999 | Join 10,000+ learners. |
-| 100,000+ | Join 100,000+ learners. |
+| Cumulative verified accounts | Signed-out action copy | Signed-in status copy |
+| --- | --- | --- |
+| 0–24 | Become a founding learner. | You’re a founding learner. |
+| 25–99 | Join a growing group of early learners. | You’re part of our growing early community. |
+| 100–999 | Join 100+ learners. | Learning with 100+ learners. |
+| 1,000–9,999 | Join 1,000+ learners. | Learning with 1,000+ learners. |
+| 10,000–99,999 | Join 10,000+ learners. | Learning with 10,000+ learners. |
+| 100,000+ | Join 100,000+ learners. | Learning with 100,000+ learners. |
+
+For a signed-out learner, the band is a real button that opens the same optional save-progress authentication modal. For a signed-in learner, it becomes non-interactive status copy. When cloud progress is unavailable, no community claim is shown.
 
 The metric means cumulative verified learner accounts created, not active users and not current undeleted accounts. This definition makes a non-decreasing milestone truthful. Test accounts and confirmed abuse should be excluded operationally before a milestone is promoted.
 
@@ -221,10 +223,11 @@ The guest record remains separate so it can be restored after logout, but it is 
 
 1. UI applies the mutation optimistically to the account-scoped cache.
 2. Repository sends the bounded versioned record with a short-lived JWT.
-3. Server derives ownership, preserves the maximum quiz score, assigns the record write timestamp, and returns the canonical record.
-4. Client replaces the optimistic row and shows **Synced**.
+3. Server derives ownership and reconciles each item by its validated `updatedAt` timestamp. Missing items in a stale payload cannot erase cloud items; a newer explicit `completed: false` still performs an intentional undo. Quiz best score remains the maximum.
+4. Read, reconciliation, and write commit in an Appwrite transaction. Commit conflicts retry with a bounded attempt count so overlapping page or device saves cannot silently overwrite one another.
+5. Client replaces the optimistic row and shows **Synced**.
 
-For ordinary signed-in edits, the last server-accepted action wins. Quiz score is the exception: the server stores the maximum score. Concurrent edits to the same completion on two devices are rare and deterministic under server acceptance order.
+For ordinary signed-in edits, the newest valid per-item timestamp wins. Quiz score is the exception: the server stores the maximum score. The same transactional boundary also protects the first authenticated guest merge.
 
 ### 9.4 Offline mutation
 

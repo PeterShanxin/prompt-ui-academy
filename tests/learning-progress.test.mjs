@@ -11,6 +11,7 @@ import {
   getNextLessonId,
   migrateLegacyTerms,
   recordQuizResult,
+  reconcileProgressRecords,
   setProgressItem,
   LESSON_IDS,
   TERM_IDS,
@@ -119,6 +120,57 @@ test("first-login merge is additive and uses the highest quiz score", () => {
     merged.items.find((item) => item.kind === "quiz")?.bestScore,
     4,
   );
+});
+
+test("regular cloud reconciliation keeps newer per-item changes from stale page saves", () => {
+  const cloud = setProgressItem(
+    setProgressItem(createEmptyProgress(), {
+      kind: "lesson",
+      itemId: "motion-enter-exit",
+      completed: true,
+      updatedAt: "2026-07-18T09:00:00.000Z",
+    }),
+    {
+      kind: "lesson",
+      itemId: "motion-duration-easing",
+      completed: true,
+      updatedAt: "2026-07-18T09:01:00.000Z",
+    },
+  );
+  const staleNavigationSave = setProgressItem(createEmptyProgress(), {
+    kind: "lesson",
+    itemId: "motion-enter-exit",
+    completed: false,
+    updatedAt: "2026-07-18T08:00:00.000Z",
+  });
+
+  const reconciled = reconcileProgressRecords(cloud, staleNavigationSave);
+
+  assert.equal(calculateCourseProgress(reconciled), 22);
+  assert.equal(
+    reconciled.items.find((item) => item.itemId === "motion-enter-exit")?.completed,
+    true,
+  );
+});
+
+test("regular cloud reconciliation preserves a newer intentional undo", () => {
+  const cloud = setProgressItem(createEmptyProgress(), {
+    kind: "lesson",
+    itemId: "motion-enter-exit",
+    completed: true,
+    updatedAt: "2026-07-18T08:00:00.000Z",
+  });
+  const undone = setProgressItem(createEmptyProgress(), {
+    kind: "lesson",
+    itemId: "motion-enter-exit",
+    completed: false,
+    updatedAt: "2026-07-18T09:00:00.000Z",
+  });
+
+  const reconciled = reconcileProgressRecords(cloud, undone);
+
+  assert.equal(calculateCourseProgress(reconciled), 0);
+  assert.equal(reconciled.items[0].completed, false);
 });
 
 test("account caches use isolated storage keys", () => {

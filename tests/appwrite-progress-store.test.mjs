@@ -7,6 +7,7 @@ import {
   communityBandForCount,
   ensureLearnerProfile,
   loadProgressRecord,
+  reconcileAndSaveProgressRecord,
   saveProgressRecord,
 } from "../app/lib/appwrite/progress-store.ts";
 
@@ -155,4 +156,61 @@ test("stores one validated private progress record per authenticated user", asyn
   });
   await saveProgressRecord(tables, "user-1", record);
   assert.deepEqual(await loadProgressRecord(tables, "user-1"), record);
+});
+
+test("reconciles progress in a transaction and retries commit conflicts", async () => {
+  const cloud = {
+    schemaVersion: 2,
+    items: [{
+      kind: "lesson",
+      itemId: "motion-enter-exit",
+      completed: true,
+      updatedAt: "2026-07-18T09:00:00.000Z",
+    }],
+    lastRoute: "/motion",
+    lastActivityAt: "2026-07-18T09:00:00.000Z",
+  };
+  const stale = {
+    schemaVersion: 2,
+    items: [{
+      kind: "lesson",
+      itemId: "motion-enter-exit",
+      completed: false,
+      updatedAt: "2026-07-18T08:00:00.000Z",
+    }],
+    lastRoute: "/quiz",
+    lastActivityAt: "2026-07-18T08:00:00.000Z",
+  };
+  let attempts = 0;
+  let rollbacks = 0;
+  let pending;
+  const tables = {
+    async createTransaction({ ttl }) {
+      assert.ok(ttl >= 60);
+      attempts += 1;
+      return { $id: `tx-${attempts}` };
+    },
+    async getRow() {
+      return { payload: JSON.stringify(cloud) };
+    },
+    async upsertRow({ data }) {
+      pending = JSON.parse(data.payload);
+    },
+    async updateTransaction({ commit, rollback }) {
+      if (rollback) {
+        rollbacks += 1;
+        return;
+      }
+      if (commit && attempts === 1) {
+        throw Object.assign(new Error("conflict"), { code: 409 });
+      }
+    },
+  };
+
+  const saved = await reconcileAndSaveProgressRecord(tables, "user-1", stale);
+
+  assert.equal(attempts, 2);
+  assert.equal(rollbacks, 1);
+  assert.equal(saved.items[0].completed, true);
+  assert.deepEqual(pending, saved);
 });

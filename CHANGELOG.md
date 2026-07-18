@@ -18,6 +18,10 @@ Notable user-facing changes are documented here. This project follows [Semantic 
 ### Fixed
 
 - Kept background placeholder lines behind the scrim and dialog in the Modal Dialog preview.
+- Kept account progress changes intact when stale page saves arrive during navigation or cross-device sync.
+- Centered the sign-in dialog and kept the save-progress prompt visible while scrolling.
+- Made account sync status visible from the closed profile control and simplified destructive account actions.
+- Turned early community proof into a clear sign-in action for signed-out learners.
 
 ## [0.1.0] - 2026-07-16
 

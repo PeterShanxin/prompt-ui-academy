@@ -3,7 +3,9 @@ import type { CommunityBand, LearnerProfile } from "../cloud-progress";
 import {
   PROGRESS_SCHEMA_VERSION,
   createEmptyProgress,
+  firstLoginMerge,
   parseProgressRecord,
+  reconcileProgressRecords,
   type LearningProgressRecord,
 } from "../learning-progress.ts";
 import {
@@ -124,12 +126,14 @@ export async function ensureLearnerProfile(
 export async function loadProgressRecord(
   tables: TablesDB,
   userId: string,
+  transactionId?: string,
 ): Promise<LearningProgressRecord> {
   try {
     const row = await tables.getRow({
       databaseId: APPWRITE_DATABASE_ID,
       tableId: APPWRITE_PROGRESS_TABLE_ID,
       rowId: userId,
+      ...(transactionId ? { transactionId } : {}),
     });
     if (typeof row.payload !== "string") throw new Error("Invalid stored progress.");
     return assertValidProgressPayload(JSON.parse(row.payload));
@@ -143,6 +147,7 @@ export async function saveProgressRecord(
   tables: TablesDB,
   userId: string,
   record: LearningProgressRecord,
+  transactionId?: string,
 ): Promise<LearningProgressRecord> {
   const canonical = assertValidProgressPayload(record);
   await tables.upsertRow({
@@ -155,8 +160,58 @@ export async function saveProgressRecord(
       updated_at: new Date().toISOString(),
     },
     permissions: [],
+    ...(transactionId ? { transactionId } : {}),
   });
   return canonical;
+}
+
+export async function reconcileAndSaveProgressRecord(
+  tables: TablesDB,
+  userId: string,
+  submitted: LearningProgressRecord,
+): Promise<LearningProgressRecord> {
+  return saveProgressTransaction(tables, userId, submitted, reconcileProgressRecords);
+}
+
+export async function mergeGuestAndSaveProgressRecord(
+  tables: TablesDB,
+  userId: string,
+  guest: LearningProgressRecord,
+): Promise<LearningProgressRecord> {
+  return saveProgressTransaction(tables, userId, guest, firstLoginMerge);
+}
+
+async function saveProgressTransaction(
+  tables: TablesDB,
+  userId: string,
+  submitted: LearningProgressRecord,
+  merge: (
+    existing: LearningProgressRecord,
+    submitted: LearningProgressRecord,
+  ) => LearningProgressRecord,
+): Promise<LearningProgressRecord> {
+  const validated = assertValidProgressPayload(submitted);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const transaction = await tables.createTransaction({ ttl: 60 });
+    try {
+      const existing = await loadProgressRecord(tables, userId, transaction.$id);
+      const canonical = merge(existing, validated);
+      await saveProgressRecord(tables, userId, canonical, transaction.$id);
+      await tables.updateTransaction({ transactionId: transaction.$id, commit: true });
+      return canonical;
+    } catch (error) {
+      try {
+        await tables.updateTransaction({ transactionId: transaction.$id, rollback: true });
+      } catch {
+        // A conflicting transaction may already be closed by Appwrite.
+      }
+      if (hasCode(error, 409) && attempt < 2) continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Progress transaction could not be committed.");
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

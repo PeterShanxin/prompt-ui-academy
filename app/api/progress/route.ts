@@ -4,10 +4,9 @@ import {
   assertValidProgressPayload,
   ensureLearnerProfile,
   loadProgressRecord,
-  saveProgressRecord,
+  reconcileAndSaveProgressRecord,
 } from "../../lib/appwrite/progress-store";
 import { createAppwriteAdminServices } from "../../lib/appwrite/server";
-import { getBestQuizScore, setProgressItem } from "../../lib/learning-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -24,20 +23,8 @@ export async function PUT(request: Request) {
     const submitted = assertValidProgressPayload(
       isObject(body) ? body.record : undefined,
     );
-    const existing = await loadProgressRecord(services.tables, userId);
-    const existingBest = getBestQuizScore(existing);
-    const submittedBest = getBestQuizScore(submitted);
-    const canonical = existingBest !== null && (submittedBest ?? -1) < existingBest
-      ? setProgressItem(submitted, {
-          kind: "quiz",
-          itemId: "ui-vocabulary-v1",
-          completed: true,
-          bestScore: Math.max(existingBest, submittedBest ?? 0),
-          updatedAt: new Date().toISOString(),
-        })
-      : submitted;
     const profile = await ensureLearnerProfile(services.tables, userId);
-    const record = await saveProgressRecord(services.tables, userId, canonical);
+    const record = await reconcileAndSaveProgressRecord(services.tables, userId, submitted);
     return { profile, record };
   });
 }

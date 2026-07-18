@@ -256,6 +256,43 @@ export function firstLoginMerge(
   };
 }
 
+export function reconcileProgressRecords(
+  cloud: LearningProgressRecord,
+  submitted: LearningProgressRecord,
+): LearningProgressRecord {
+  const reconciled = new Map<string, ProgressItem>();
+
+  for (const item of [...cloud.items, ...submitted.items]) {
+    const key = `${item.kind}:${item.itemId}`;
+    const current = reconciled.get(key);
+    if (!current) {
+      reconciled.set(key, item);
+      continue;
+    }
+
+    const newer = item.updatedAt >= current.updatedAt ? item : current;
+    reconciled.set(key, {
+      ...newer,
+      ...(item.kind === "quiz"
+        ? { bestScore: Math.max(current.bestScore ?? 0, item.bestScore ?? 0) }
+        : {}),
+    });
+  }
+
+  const submittedActivityIsNewer =
+    submitted.lastActivityAt &&
+    (!cloud.lastActivityAt || submitted.lastActivityAt >= cloud.lastActivityAt);
+
+  return {
+    schemaVersion: PROGRESS_SCHEMA_VERSION,
+    items: [...reconciled.values()],
+    lastRoute: submittedActivityIsNewer ? submitted.lastRoute : cloud.lastRoute,
+    lastActivityAt: submittedActivityIsNewer
+      ? submitted.lastActivityAt
+      : cloud.lastActivityAt,
+  };
+}
+
 export function calculateCourseProgress(record: LearningProgressRecord): number {
   const completed = new Set(
     record.items

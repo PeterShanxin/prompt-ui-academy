@@ -3,11 +3,9 @@ import { AppwriteHttpError, requireAppwriteUser } from "../../../lib/appwrite/au
 import {
   assertValidProgressPayload,
   ensureLearnerProfile,
-  loadProgressRecord,
-  saveProgressRecord,
+  mergeGuestAndSaveProgressRecord,
 } from "../../../lib/appwrite/progress-store";
 import { createAppwriteAdminServices } from "../../../lib/appwrite/server";
-import { firstLoginMerge } from "../../../lib/learning-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +19,7 @@ export async function POST(request: Request) {
       isObject(body) ? body.record : undefined,
     );
     const profile = await ensureLearnerProfile(services.tables, userId);
-    const cloud = await loadProgressRecord(services.tables, userId);
-    const record = await saveProgressRecord(
-      services.tables,
-      userId,
-      firstLoginMerge(cloud, guest),
-    );
+    const record = await mergeGuestAndSaveProgressRecord(services.tables, userId, guest);
     return NextResponse.json({ profile, record }, {
       headers: { "Cache-Control": "no-store" },
     });
