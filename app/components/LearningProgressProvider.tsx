@@ -186,16 +186,20 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
           snapshot = await loadCloudProgress(account);
         }
         let cloud = snapshot.record;
-        const pending = parseProgressRecord(
-          window.localStorage.getItem(getAccountPendingKey(user.id)),
-        );
+        const pendingKey = getAccountPendingKey(user.id);
+        const pendingBeforeSave = window.localStorage.getItem(pendingKey);
+        const pending = parseProgressRecord(pendingBeforeSave);
+        let pendingUnchanged = true;
         if (pending.items.length || pending.lastRoute) {
           replaceRecord(pending);
           cloud = await saveCloudProgress(account, pending);
-          window.localStorage.removeItem(getAccountPendingKey(user.id));
+          const pendingAfterSave = window.localStorage.getItem(pendingKey);
+          pendingUnchanged = pendingAfterSave === pendingBeforeSave;
+          if (pendingUnchanged) window.localStorage.removeItem(pendingKey);
         }
         if (!active) return;
         setProfile(snapshot.profile);
+        if (!pendingUnchanged) return;
         replaceRecord(cloud);
         persist(cloud, user.id);
         setSyncStatus("synced");

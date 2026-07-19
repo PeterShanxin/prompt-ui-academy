@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AppwriteHttpError, requireAppwriteUser } from "../../../lib/appwrite/auth";
+import { learnerIdentityExists } from "../../../lib/appwrite/account-lifecycle";
 import {
   assertValidProgressPayload,
   ensureLearnerProfile,
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
     );
     const profile = await ensureLearnerProfile(services.tables, userId);
     const record = await mergeGuestAndSaveProgressRecord(services.tables, userId, guest);
+    if (!await learnerIdentityExists(services.users, services.tables, userId)) {
+      throw new AppwriteHttpError(401, "Authentication required.");
+    }
     return NextResponse.json({ profile, record }, {
       headers: { "Cache-Control": "no-store" },
     });

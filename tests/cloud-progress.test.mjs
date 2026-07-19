@@ -24,3 +24,16 @@ test("signed-in sync ignores stale completions after the active user changes", a
   assert.match(source, /previousUserId\.current === userId/);
   assert.match(source, /contextVersion === syncContext\.current/);
 });
+
+test("initial cloud flush preserves a newer pending local edit", async () => {
+  const source = await readFile(
+    new URL("../app/components/LearningProgressProvider.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const pendingBeforeSave = window\.localStorage\.getItem/);
+  assert.match(source, /const pendingAfterSave = window\.localStorage\.getItem/);
+  assert.match(source, /pendingAfterSave === pendingBeforeSave/);
+  assert.match(source, /if \(pendingUnchanged\)[\s\S]+removeItem/);
+  assert.match(source, /if \(!pendingUnchanged\) return/);
+});

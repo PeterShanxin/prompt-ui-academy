@@ -181,6 +181,54 @@ export async function mergeGuestAndSaveProgressRecord(
   return saveProgressTransaction(tables, userId, guest, firstLoginMerge);
 }
 
+export async function deleteLearnerPrivateRows(
+  tables: TablesDB,
+  userId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const transaction = await tables.createTransaction({ ttl: 60 });
+    try {
+      const profileExists = await rowExists(
+        tables,
+        APPWRITE_PROFILES_TABLE_ID,
+        userId,
+        transaction.$id,
+      );
+      const progressExists = await rowExists(
+        tables,
+        APPWRITE_PROGRESS_TABLE_ID,
+        userId,
+        transaction.$id,
+      );
+
+      if (progressExists) {
+        await tables.deleteRow({
+          databaseId: APPWRITE_DATABASE_ID,
+          tableId: APPWRITE_PROGRESS_TABLE_ID,
+          rowId: userId,
+          transactionId: transaction.$id,
+        });
+      }
+      if (profileExists) {
+        await tables.deleteRow({
+          databaseId: APPWRITE_DATABASE_ID,
+          tableId: APPWRITE_PROFILES_TABLE_ID,
+          rowId: userId,
+          transactionId: transaction.$id,
+        });
+      }
+      await tables.updateTransaction({ transactionId: transaction.$id, commit: true });
+      return;
+    } catch (error) {
+      await rollbackTransaction(tables, transaction.$id);
+      if (hasCode(error, 409) && attempt < 2) continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Private learner data could not be deleted.");
+}
+
 async function saveProgressTransaction(
   tables: TablesDB,
   userId: string,
@@ -195,23 +243,72 @@ async function saveProgressTransaction(
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const transaction = await tables.createTransaction({ ttl: 60 });
     try {
+      await touchLearnerProfile(tables, userId, transaction.$id);
       const existing = await loadProgressRecord(tables, userId, transaction.$id);
       const canonical = merge(existing, validated);
       await saveProgressRecord(tables, userId, canonical, transaction.$id);
       await tables.updateTransaction({ transactionId: transaction.$id, commit: true });
       return canonical;
     } catch (error) {
-      try {
-        await tables.updateTransaction({ transactionId: transaction.$id, rollback: true });
-      } catch {
-        // A conflicting transaction may already be closed by Appwrite.
-      }
+      await rollbackTransaction(tables, transaction.$id);
       if (hasCode(error, 409) && attempt < 2) continue;
       throw error;
     }
   }
 
   throw new Error("Progress transaction could not be committed.");
+}
+
+async function touchLearnerProfile(
+  tables: TablesDB,
+  userId: string,
+  transactionId: string,
+): Promise<void> {
+  const row = await tables.getRow({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_PROFILES_TABLE_ID,
+    rowId: userId,
+    transactionId,
+  });
+  const profile = profileFromRow(row);
+  await tables.updateRow({
+    databaseId: APPWRITE_DATABASE_ID,
+    tableId: APPWRITE_PROFILES_TABLE_ID,
+    rowId: userId,
+    data: {
+      pioneer_number: profile.pioneerNumber,
+      created_at: profile.createdAt,
+    },
+    transactionId,
+  });
+}
+
+async function rowExists(
+  tables: TablesDB,
+  tableId: string,
+  userId: string,
+  transactionId: string,
+): Promise<boolean> {
+  try {
+    await tables.getRow({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId,
+      rowId: userId,
+      transactionId,
+    });
+    return true;
+  } catch (error) {
+    if (hasCode(error, 404)) return false;
+    throw error;
+  }
+}
+
+async function rollbackTransaction(tables: TablesDB, transactionId: string): Promise<void> {
+  try {
+    await tables.updateTransaction({ transactionId, rollback: true });
+  } catch {
+    // Appwrite may already have closed a conflicting transaction.
+  }
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

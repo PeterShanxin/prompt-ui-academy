@@ -10,6 +10,8 @@ import {
   reconcileAndSaveProgressRecord,
   saveProgressRecord,
 } from "../app/lib/appwrite/progress-store.ts";
+import * as progressStore from "../app/lib/appwrite/progress-store.ts";
+import { learnerIdentityExists } from "../app/lib/appwrite/account-lifecycle.ts";
 
 const moduleUrl = new URL("../app/lib/appwrite/progress-store.ts", import.meta.url);
 
@@ -182,6 +184,7 @@ test("reconciles progress in a transaction and retries commit conflicts", async 
     lastActivityAt: "2026-07-18T08:00:00.000Z",
   };
   let attempts = 0;
+  let profileTouches = 0;
   let rollbacks = 0;
   let pending;
   const tables = {
@@ -190,8 +193,18 @@ test("reconciles progress in a transaction and retries commit conflicts", async 
       attempts += 1;
       return { $id: `tx-${attempts}` };
     },
-    async getRow() {
+    async getRow({ tableId }) {
+      if (tableId === "learner_profiles") {
+        return {
+          $id: "user-1",
+          pioneer_number: 1,
+          created_at: "2026-07-18T08:00:00.000Z",
+        };
+      }
       return { payload: JSON.stringify(cloud) };
+    },
+    async updateRow({ tableId }) {
+      if (tableId === "learner_profiles") profileTouches += 1;
     },
     async upsertRow({ data }) {
       pending = JSON.parse(data.payload);
@@ -211,6 +224,86 @@ test("reconciles progress in a transaction and retries commit conflicts", async 
 
   assert.equal(attempts, 2);
   assert.equal(rollbacks, 1);
+  assert.equal(profileTouches, attempts);
   assert.equal(saved.items[0].completed, true);
   assert.deepEqual(pending, saved);
 });
+
+test("deletes private learner rows as one transactional unit", async () => {
+  assert.equal(typeof progressStore.deleteLearnerPrivateRows, "function");
+
+  const rows = new Map([
+    ["learner_profiles:user-1", {
+      $id: "user-1",
+      pioneer_number: 1,
+      created_at: "2026-07-18T08:00:00.000Z",
+    }],
+    ["progress_records:user-1", {
+      $id: "user-1",
+      payload: JSON.stringify(createRecord("motion-enter-exit")),
+      schema_version: 2,
+      updated_at: "2026-07-18T08:00:00.000Z",
+    }],
+  ]);
+  const tables = createTransactionalTables(rows);
+
+  await progressStore.deleteLearnerPrivateRows(tables, "user-1");
+  assert.equal(rows.size, 0);
+});
+
+test("removes rows written by a request after its learner identity was deleted", async () => {
+  const rows = new Map([
+    ["learner_profiles:user-1", {
+      $id: "user-1",
+      pioneer_number: 1,
+      created_at: "2026-07-18T08:00:00.000Z",
+    }],
+    ["progress_records:user-1", {
+      $id: "user-1",
+      payload: JSON.stringify(createRecord("motion-enter-exit")),
+      schema_version: 2,
+      updated_at: "2026-07-18T08:00:00.000Z",
+    }],
+  ]);
+  const users = {
+    async get() { throw Object.assign(new Error("missing"), { code: 404 }); },
+  };
+
+  assert.equal(
+    await learnerIdentityExists(users, createTransactionalTables(rows), "user-1"),
+    false,
+  );
+  assert.equal(rows.size, 0);
+});
+
+function createRecord(itemId) {
+  return {
+    schemaVersion: 2,
+    items: [{
+      kind: "lesson",
+      itemId,
+      completed: true,
+      updatedAt: "2026-07-18T08:00:00.000Z",
+    }],
+    lastRoute: "/motion",
+    lastActivityAt: "2026-07-18T08:00:00.000Z",
+  };
+}
+
+function createTransactionalTables(rows) {
+  return {
+    async createTransaction() { return { $id: "tx-1" }; },
+    async updateTransaction() {},
+    async getRow({ tableId, rowId }) {
+      const row = rows.get(`${tableId}:${rowId}`);
+      if (!row) throw Object.assign(new Error("missing"), { code: 404 });
+      return row;
+    },
+    async deleteRow({ tableId, rowId }) {
+      rows.delete(`${tableId}:${rowId}`);
+    },
+    async upsertRow({ tableId, rowId, data }) {
+      rows.set(`${tableId}:${rowId}`, { $id: rowId, ...data });
+    },
+  };
+}

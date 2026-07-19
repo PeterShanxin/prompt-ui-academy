@@ -59,13 +59,17 @@ test("keeps identity, raw counts, and deletion authority on the server", async (
   ];
   for (const path of routePaths) assert.equal(existsSync(new URL(path, root)), true);
 
-  const [progress, merge, community, deletion] = await Promise.all(
-    routePaths.map((path) => readFile(new URL(path, root), "utf8")),
-  );
+  const [progress, merge, community, deletion, progressStore] = await Promise.all([
+    ...routePaths.map((path) => readFile(new URL(path, root), "utf8")),
+    readFile(new URL("app/lib/appwrite/progress-store.ts", root), "utf8"),
+  ]);
   assert.match(`${progress}\n${merge}`, /requireAppwriteUser/);
   assert.doesNotMatch(`${progress}\n${merge}`, /body\.userId|record\.userId/);
+  assert.match(progress, /reconcileAndSaveProgressRecord[\s\S]+learnerIdentityExists/);
+  assert.match(merge, /mergeGuestAndSaveProgressRecord[\s\S]+learnerIdentityExists/);
   assert.match(community, /\{ band: metric\.band_key \}/);
   assert.doesNotMatch(community, /cumulative_verified_accounts\s*[,}]/);
-  assert.match(deletion, /updateStatus[\s\S]+status: false[\s\S]+deleteRow[\s\S]+users\.delete/);
-  assert.match(deletion, /createTransaction\(\{ ttl: (?:[6-9]\d|[1-9]\d{2,}) \}\)/);
+  assert.match(deletion, /updateStatus[\s\S]+status: false[\s\S]+users\.delete[\s\S]+deleteLearnerPrivateRows/);
+  assert.match(progressStore, /createTransaction\(\{ ttl: (?:[6-9]\d|[1-9]\d{2,}) \}\)[\s\S]+deleteRow/);
+  assert.match(deletion, /catch[\s\S]+status: true[\s\S]+throw/);
 });

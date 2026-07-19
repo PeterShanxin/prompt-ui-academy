@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AppwriteHttpError, requireAppwriteUser } from "../../lib/appwrite/auth";
+import { learnerIdentityExists } from "../../lib/appwrite/account-lifecycle";
 import {
   assertValidProgressPayload,
   ensureLearnerProfile,
@@ -40,7 +41,11 @@ async function handle(
     const { userId } = await requireAppwriteUser(request);
     const services = createAppwriteAdminServices();
     if (!services) throw new AppwriteHttpError(503, "Cloud progress is unavailable.");
-    return NextResponse.json(await action(services, userId), {
+    const result = await action(services, userId);
+    if (!await learnerIdentityExists(services.users, services.tables, userId)) {
+      throw new AppwriteHttpError(401, "Authentication required.");
+    }
+    return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

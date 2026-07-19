@@ -27,6 +27,7 @@ Notable user-facing changes are documented here. This project follows [Semantic 
 - Kept quiz results in view on narrow screens after the final answer.
 - Linked every course-map lesson to a relevant in-page section instead of a shared route top.
 - Matched the Motion hero badge to the playground's default duration and easing.
+- Preserved newer local progress during initial cloud sync and prevented in-flight writes from surviving account deletion.
 
 ## [0.1.0] - 2026-07-16
 
