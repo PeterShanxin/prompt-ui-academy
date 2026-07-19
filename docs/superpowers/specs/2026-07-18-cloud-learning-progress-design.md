@@ -102,7 +102,7 @@ The homepage fetches a safe community band near the primary course call to actio
 
 | Cumulative verified accounts | Signed-out action copy | Signed-in status copy |
 | --- | --- | --- |
-| 0–24 | Become a founding learner. | You’re a founding learner. |
+| 0–24 | Become one of the founding learners. | You’re among the founding learners! |
 | 25–99 | Join a growing group of early learners. | You’re part of our growing early community. |
 | 100–999 | Join 100+ learners. | Learning with 100+ learners. |
 | 1,000–9,999 | Join 1,000+ learners. | Learning with 1,000+ learners. |
@@ -276,7 +276,7 @@ The interface never blocks lesson access because authentication or sync is unava
 ## 12. Accessibility and localization
 
 - All new learner-facing copy is provided in Chinese and English.
-- The auth modal traps focus, labels its title and description, closes with Escape, and restores focus to its trigger.
+- The auth modal traps focus, labels its title and description, closes with Escape or a backdrop click, and restores focus to its trigger.
 - Authentication and sync messages use an appropriate `aria-live` region without announcing every optimistic update.
 - Provider controls have accessible names independent of provider logos.
 - Completion controls expose pressed/completed state programmatically.

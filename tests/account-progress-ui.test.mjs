@@ -12,8 +12,8 @@ test("makes early community proof an honest sign-in action", async () => {
 
   assert.match(source, /useAuth/);
   assert.match(source, /<button[\s\S]+openAuth/);
-  assert.match(source, /成为创始学员/);
-  assert.match(source, /Become a founding learner/);
+  assert.match(source, /现在成为创始学员的一员/);
+  assert.match(source, /Become one of the founding learners/);
 });
 
 test("keeps cloud-progress prompts and dialogs visible in the viewport", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { useAuth } from "./AuthProvider";
 import { useI18n } from "./I18n";
 
@@ -77,12 +77,23 @@ export function AuthModal() {
     closeAuth();
   };
 
+  const closeFromBackdrop = (event: MouseEvent<HTMLDialogElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const outsideDialog =
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom;
+    if (outsideDialog) close();
+  };
+
   return (
     <dialog
       className="auth-dialog"
       ref={dialogRef}
       aria-labelledby="auth-title"
       aria-describedby="auth-description"
+      onClick={closeFromBackdrop}
       onCancel={(event) => {
         event.preventDefault();
         close();

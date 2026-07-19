@@ -83,9 +83,9 @@ export const curriculum: CurriculumModule[] = [
     descriptionEn: "Turn ‘that box’ and ‘the thing on the right’ into precise component names.",
     color: "blue",
     lessons: [
-      { id: "ui-components-patterns-structure", title: "组件、模式与页面结构", titleEn: "Components, patterns, and page structure", time: "4 分钟", timeEn: "4 min", href: "/dictionary" },
-      { id: "ui-navigation-inputs", title: "导航与输入控件", titleEn: "Navigation and input controls", time: "6 分钟", timeEn: "6 min", href: "/dictionary" },
-      { id: "ui-overlays-feedback", title: "浮层与反馈", titleEn: "Overlays and feedback", time: "5 分钟", timeEn: "5 min", href: "/dictionary" },
+      { id: "ui-components-patterns-structure", title: "组件、模式与页面结构", titleEn: "Components, patterns, and page structure", time: "4 分钟", timeEn: "4 min", href: "/dictionary#ui-components-patterns-structure" },
+      { id: "ui-navigation-inputs", title: "导航与输入控件", titleEn: "Navigation and input controls", time: "6 分钟", timeEn: "6 min", href: "/dictionary#ui-navigation-inputs" },
+      { id: "ui-overlays-feedback", title: "浮层与反馈", titleEn: "Overlays and feedback", time: "5 分钟", timeEn: "5 min", href: "/dictionary#ui-overlays-feedback" },
     ],
   },
   {
@@ -96,9 +96,9 @@ export const curriculum: CurriculumModule[] = [
     descriptionEn: "Learn to specify direction, duration, easing, and rhythm across multiple elements.",
     color: "coral",
     lessons: [
-      { id: "motion-enter-exit", title: "进入与退出动效", titleEn: "Enter and exit motion", time: "5 分钟", timeEn: "5 min", href: "/motion" },
-      { id: "motion-duration-easing", title: "Duration 与 Easing", titleEn: "Duration and easing", time: "6 分钟", timeEn: "6 min", href: "/motion" },
-      { id: "motion-spring-stagger", title: "Spring 与 Stagger", titleEn: "Spring and stagger", time: "7 分钟", timeEn: "7 min", href: "/motion" },
+      { id: "motion-enter-exit", title: "进入与退出动效", titleEn: "Enter and exit motion", time: "5 分钟", timeEn: "5 min", href: "/motion#motion-enter-exit" },
+      { id: "motion-duration-easing", title: "Duration 与 Easing", titleEn: "Duration and easing", time: "6 分钟", timeEn: "6 min", href: "/motion#motion-duration-easing" },
+      { id: "motion-spring-stagger", title: "Spring 与 Stagger", titleEn: "Spring and stagger", time: "7 分钟", timeEn: "7 min", href: "/motion#motion-spring-stagger" },
     ],
   },
   {
@@ -109,9 +109,9 @@ export const curriculum: CurriculumModule[] = [
     descriptionEn: "Combine the goal, components, visuals, states, and motion into a controllable instruction.",
     color: "yellow",
     lessons: [
-      { id: "prompt-five-part", title: "五段式 UI Prompt", titleEn: "The five-part UI prompt", time: "5 分钟", timeEn: "5 min", href: "/lab" },
-      { id: "prompt-vague-to-precise", title: "从模糊要求到精确约束", titleEn: "From vague requests to precise constraints", time: "8 分钟", timeEn: "8 min", href: "/lab" },
-      { id: "prompt-quiz-review", title: "小测与复盘", titleEn: "Quiz and review", time: "4 分钟", timeEn: "4 min", href: "/quiz" },
+      { id: "prompt-five-part", title: "五段式 UI Prompt", titleEn: "The five-part UI prompt", time: "5 分钟", timeEn: "5 min", href: "/lab#prompt-five-part" },
+      { id: "prompt-vague-to-precise", title: "从模糊要求到精确约束", titleEn: "From vague requests to precise constraints", time: "8 分钟", timeEn: "8 min", href: "/lab#prompt-vague-to-precise" },
+      { id: "prompt-quiz-review", title: "小测与复盘", titleEn: "Quiz and review", time: "4 分钟", timeEn: "4 min", href: "/quiz#prompt-quiz-review" },
     ],
   },
 ];

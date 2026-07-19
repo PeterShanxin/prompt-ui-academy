@@ -2,6 +2,7 @@
 
 :root { --paper:#f5f0e8; --card:#fffdf8; --ink:#161616; --muted:#6e6a64; --line:#1b1b1b; --coral:#ff5a4f; --blue:#2457f5; --butter:#ffd95a; --green:#079868; --soft-blue:#e6edff; }
 * { box-sizing:border-box; }
+:target { scroll-margin-top:110px; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:radial-gradient(circle at 15% 8%,rgba(255,255,255,.82),transparent 27%),var(--paper); color:var(--ink); font-family:var(--font-geist-sans),"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
 body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.18; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.13'/%3E%3C/svg%3E"); z-index:20; mix-blend-mode:multiply; }

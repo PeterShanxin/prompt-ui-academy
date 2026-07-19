@@ -47,7 +47,7 @@ function communityCopy(
       case "thousand": return pick("与 1,000+ 学员一起学习", "Learning with 1,000+ learners");
       case "hundred": return pick("与 100+ 学员一起学习", "Learning with 100+ learners");
       case "early": return pick("你已加入正在成长的早期学员社区", "You’re part of our growing early community");
-      default: return pick("你是一名创始学员", "You’re a founding learner");
+      default: return pick("你是创始学员中的一员！", "You’re among the founding learners!");
     }
   }
 
@@ -57,6 +57,6 @@ function communityCopy(
     case "thousand": return pick("加入 1,000+ 学员", "Join 1,000+ learners");
     case "hundred": return pick("加入 100+ 学员", "Join 100+ learners");
     case "early": return pick("加入正在成长的早期学员社区", "Join a growing group of early learners");
-    default: return pick("成为创始学员", "Become a founding learner");
+    default: return pick("现在成为创始学员的一员", "Become one of the founding learners");
   }
 }
