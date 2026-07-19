@@ -3,6 +3,8 @@ import { AppwriteHttpError, requireAppwriteUser } from "../../../lib/appwrite/au
 import {
   deleteLearnerPrivateRows,
   ensureLearnerProfile,
+  restoreLearnerPrivateRows,
+  type LearnerPrivateRowsSnapshot,
 } from "../../../lib/appwrite/progress-store";
 import { createAppwriteAdminServices } from "../../../lib/appwrite/server";
 
@@ -12,6 +14,8 @@ export async function DELETE(request: Request) {
   let userId: string | null = null;
   let userDisabled = false;
   let userDeleted = false;
+  let privateRowsDeleted = false;
+  let privateRows: LearnerPrivateRowsSnapshot | null = null;
   const services = createAppwriteAdminServices();
   try {
     if (!services) throw new AppwriteHttpError(503, "Account deletion is unavailable.");
@@ -19,22 +23,35 @@ export async function DELETE(request: Request) {
     await ensureLearnerProfile(services.tables, userId);
     await services.users.updateStatus({ userId, status: false });
     userDisabled = true;
+    privateRows = await deleteLearnerPrivateRows(services.tables, userId);
+    privateRowsDeleted = true;
     try {
       await services.users.delete({ userId });
       userDeleted = true;
     } catch (error) {
+      await restoreLearnerPrivateRows(services.tables, userId, privateRows);
+      privateRowsDeleted = false;
       await services.users.updateStatus({ userId, status: true });
       userDisabled = false;
       throw error;
     }
-    await deleteLearnerPrivateRows(services.tables, userId);
     return new NextResponse(null, {
       status: 204,
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
     if (services && userId && userDisabled && !userDeleted) {
-      try { await services.users.updateStatus({ userId, status: true }); } catch { /* best effort */ }
+      if (privateRowsDeleted && privateRows) {
+        try {
+          await restoreLearnerPrivateRows(services.tables, userId, privateRows);
+          privateRowsDeleted = false;
+        } catch {
+          // Keep the account disabled rather than re-enable it without its private data.
+        }
+      }
+      if (!privateRowsDeleted) {
+        try { await services.users.updateStatus({ userId, status: true }); } catch { /* best effort */ }
+      }
     }
     const status = error instanceof AppwriteHttpError ? error.status : 502;
     return NextResponse.json(

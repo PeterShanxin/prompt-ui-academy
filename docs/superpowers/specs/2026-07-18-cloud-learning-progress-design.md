@@ -255,7 +255,7 @@ If the learner requests sign-out while mutations remain unsynced, the account me
 - Logs and analytics must not contain access tokens, one-time codes, email addresses, or complete progress payloads.
 - Data collection is limited to verified account identity and learning progress required by the feature.
 
-Account deletion requires an authenticated confirmation step. A server-only endpoint verifies a fresh JWT, disables the Appwrite user, deletes the identity, and then removes private progress/profile rows in a database transaction. If identity deletion fails, the route re-enables the user before any private rows are removed. In-flight progress requests recheck the identity after any row-creating action and self-clean if deletion won the race. The browser clears the account-scoped cache and restores guest state. The consumed pioneer number and already-achieved public milestone remain as cumulative, non-identifying counters.
+Account deletion requires an authenticated confirmation step. A server-only endpoint verifies a fresh JWT, disables the Appwrite user as a write barrier, removes private progress/profile rows in a database transaction, and then deletes the identity. Progress requests check identity status before and after any row-creating action; disabled identities cannot begin new writes, and requests that overlap a completed identity deletion self-clean. If identity deletion fails, the route transactionally restores the rows before re-enabling the user. The browser clears the account-scoped cache and restores guest state. The consumed pioneer number and already-achieved public milestone remain as cumulative, non-identifying counters.
 
 ## 11. UI states and copy
 
@@ -334,7 +334,7 @@ Any visible-behavior patch after final review resets the repository's manual-val
 - payload, score, timestamp, size, and identifier constraints reject invalid input;
 - pioneer numbers are unique and never reused;
 - public function exposes only a valid band key;
-- account deletion disables and deletes the identity before removing private rows, while in-flight progress requests recheck identity and self-clean;
+- account deletion uses the disabled identity as a write barrier, removes private rows before identity deletion, and restores them before re-enabling on failure;
 
 ### Component and integration tests
 

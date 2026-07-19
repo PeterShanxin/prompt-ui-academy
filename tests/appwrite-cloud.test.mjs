@@ -69,7 +69,7 @@ test("keeps identity, raw counts, and deletion authority on the server", async (
   assert.match(merge, /mergeGuestAndSaveProgressRecord[\s\S]+learnerIdentityExists/);
   assert.match(community, /\{ band: metric\.band_key \}/);
   assert.doesNotMatch(community, /cumulative_verified_accounts\s*[,}]/);
-  assert.match(deletion, /updateStatus[\s\S]+status: false[\s\S]+users\.delete[\s\S]+deleteLearnerPrivateRows/);
+  assert.match(deletion, /updateStatus[\s\S]+status: false[\s\S]+deleteLearnerPrivateRows[\s\S]+users\.delete/);
   assert.match(progressStore, /createTransaction\(\{ ttl: (?:[6-9]\d|[1-9]\d{2,}) \}\)[\s\S]+deleteRow/);
-  assert.match(deletion, /catch[\s\S]+status: true[\s\S]+throw/);
+  assert.match(deletion, /catch[\s\S]+restoreLearnerPrivateRows[\s\S]+status: true[\s\S]+throw/);
 });

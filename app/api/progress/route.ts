@@ -41,6 +41,9 @@ async function handle(
     const { userId } = await requireAppwriteUser(request);
     const services = createAppwriteAdminServices();
     if (!services) throw new AppwriteHttpError(503, "Cloud progress is unavailable.");
+    if (!await learnerIdentityExists(services.users, services.tables, userId)) {
+      throw new AppwriteHttpError(401, "Authentication required.");
+    }
     const result = await action(services, userId);
     if (!await learnerIdentityExists(services.users, services.tables, userId)) {
       throw new AppwriteHttpError(401, "Authentication required.");

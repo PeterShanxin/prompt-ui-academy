@@ -247,8 +247,15 @@ test("deletes private learner rows as one transactional unit", async () => {
   ]);
   const tables = createTransactionalTables(rows);
 
-  await progressStore.deleteLearnerPrivateRows(tables, "user-1");
+  const snapshot = await progressStore.deleteLearnerPrivateRows(tables, "user-1");
   assert.equal(rows.size, 0);
+
+  await progressStore.restoreLearnerPrivateRows(tables, "user-1", snapshot);
+  assert.equal(rows.size, 2);
+  assert.equal(
+    JSON.parse(rows.get("progress_records:user-1").payload).items[0].itemId,
+    "motion-enter-exit",
+  );
 });
 
 test("removes rows written by a request after its learner identity was deleted", async () => {
@@ -274,6 +281,25 @@ test("removes rows written by a request after its learner identity was deleted",
     false,
   );
   assert.equal(rows.size, 0);
+});
+
+test("treats a disabled learner as a write barrier without deleting recovery data", async () => {
+  const rows = new Map([
+    ["learner_profiles:user-1", {
+      $id: "user-1",
+      pioneer_number: 1,
+      created_at: "2026-07-18T08:00:00.000Z",
+    }],
+  ]);
+  const users = {
+    async get() { return { $id: "user-1", status: false }; },
+  };
+
+  assert.equal(
+    await learnerIdentityExists(users, createTransactionalTables(rows), "user-1"),
+    false,
+  );
+  assert.equal(rows.size, 1);
 });
 
 function createRecord(itemId) {

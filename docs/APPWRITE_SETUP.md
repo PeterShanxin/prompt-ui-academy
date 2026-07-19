@@ -96,6 +96,6 @@ Use two real test accounts and complete all of the following on the preview:
 6. Offline edits remain local, retry, and never claim to be synced early.
 7. Each account can read only its own progress through the authenticated routes.
 8. The homepage response contains a band key, never an exact learner count.
-9. Account deletion disables and deletes the identity before removing private rows. In-flight progress requests recheck the identity and remove any rows they wrote after deletion.
+9. Account deletion disables the identity as a write barrier, transactionally removes private rows, and then deletes the identity. If identity deletion fails, the rows are restored before the account is re-enabled.
 
 Only after this preview gate should the same variables be enabled for production.

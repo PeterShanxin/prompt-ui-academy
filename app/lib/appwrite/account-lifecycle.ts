@@ -7,8 +7,8 @@ export async function learnerIdentityExists(
   userId: string,
 ): Promise<boolean> {
   try {
-    await users.get({ userId });
-    return true;
+    const user = await users.get({ userId });
+    return user.status;
   } catch (error) {
     if (!hasCode(error, 404)) throw error;
   }

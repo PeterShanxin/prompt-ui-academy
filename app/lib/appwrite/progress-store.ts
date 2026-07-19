@@ -16,6 +16,18 @@ import {
   APPWRITE_PROGRESS_TABLE_ID,
 } from "./server.ts";
 
+export type LearnerPrivateRowsSnapshot = {
+  profile: {
+    pioneer_number: number;
+    created_at: string;
+  } | null;
+  progress: {
+    payload: string;
+    schema_version: number;
+    updated_at: string;
+  } | null;
+};
+
 export function communityBandForCount(count: number): CommunityBand {
   if (count >= 100_000) return "hundred_thousand";
   if (count >= 10_000) return "ten_thousand";
@@ -184,24 +196,24 @@ export async function mergeGuestAndSaveProgressRecord(
 export async function deleteLearnerPrivateRows(
   tables: TablesDB,
   userId: string,
-): Promise<void> {
+): Promise<LearnerPrivateRowsSnapshot> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const transaction = await tables.createTransaction({ ttl: 60 });
     try {
-      const profileExists = await rowExists(
+      const profile = await getOptionalPrivateRow(
         tables,
         APPWRITE_PROFILES_TABLE_ID,
         userId,
         transaction.$id,
       );
-      const progressExists = await rowExists(
+      const progress = await getOptionalPrivateRow(
         tables,
         APPWRITE_PROGRESS_TABLE_ID,
         userId,
         transaction.$id,
       );
 
-      if (progressExists) {
+      if (progress) {
         await tables.deleteRow({
           databaseId: APPWRITE_DATABASE_ID,
           tableId: APPWRITE_PROGRESS_TABLE_ID,
@@ -209,13 +221,65 @@ export async function deleteLearnerPrivateRows(
           transactionId: transaction.$id,
         });
       }
-      if (profileExists) {
+      if (profile) {
         await tables.deleteRow({
           databaseId: APPWRITE_DATABASE_ID,
           tableId: APPWRITE_PROFILES_TABLE_ID,
           rowId: userId,
           transactionId: transaction.$id,
         });
+      }
+      await tables.updateTransaction({ transactionId: transaction.$id, commit: true });
+      return {
+        profile: profile
+          ? {
+              pioneer_number: requireNumber(profile.pioneer_number),
+              created_at: requireString(profile.created_at),
+            }
+          : null,
+        progress: progress
+          ? {
+              payload: requireString(progress.payload),
+              schema_version: requireNumber(progress.schema_version),
+              updated_at: requireString(progress.updated_at),
+            }
+          : null,
+      };
+    } catch (error) {
+      await rollbackTransaction(tables, transaction.$id);
+      if (hasCode(error, 409) && attempt < 2) continue;
+      throw error;
+    }
+  }
+
+  throw new Error("Private learner data could not be deleted.");
+}
+
+export async function restoreLearnerPrivateRows(
+  tables: TablesDB,
+  userId: string,
+  snapshot: LearnerPrivateRowsSnapshot,
+): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const transaction = await tables.createTransaction({ ttl: 60 });
+    try {
+      if (snapshot.profile) {
+        await tables.upsertRow({
+          databaseId: APPWRITE_DATABASE_ID,
+          tableId: APPWRITE_PROFILES_TABLE_ID,
+          rowId: userId,
+          data: snapshot.profile,
+          permissions: [],
+          transactionId: transaction.$id,
+        });
+      }
+      if (snapshot.progress) {
+        const current = await loadProgressRecord(tables, userId, transaction.$id);
+        const restored = reconcileProgressRecords(
+          current,
+          assertValidProgressPayload(JSON.parse(snapshot.progress.payload)),
+        );
+        await saveProgressRecord(tables, userId, restored, transaction.$id);
       }
       await tables.updateTransaction({ transactionId: transaction.$id, commit: true });
       return;
@@ -226,7 +290,7 @@ export async function deleteLearnerPrivateRows(
     }
   }
 
-  throw new Error("Private learner data could not be deleted.");
+  throw new Error("Private learner data could not be restored.");
 }
 
 async function saveProgressTransaction(
@@ -283,24 +347,33 @@ async function touchLearnerProfile(
   });
 }
 
-async function rowExists(
+async function getOptionalPrivateRow(
   tables: TablesDB,
   tableId: string,
   userId: string,
   transactionId: string,
-): Promise<boolean> {
+): Promise<Record<string, unknown> | null> {
   try {
-    await tables.getRow({
+    return await tables.getRow({
       databaseId: APPWRITE_DATABASE_ID,
       tableId,
       rowId: userId,
       transactionId,
     });
-    return true;
   } catch (error) {
-    if (hasCode(error, 404)) return false;
+    if (hasCode(error, 404)) return null;
     throw error;
   }
+}
+
+function requireString(value: unknown): string {
+  if (typeof value !== "string") throw new Error("Invalid private learner row.");
+  return value;
+}
+
+function requireNumber(value: unknown): number {
+  if (typeof value !== "number") throw new Error("Invalid private learner row.");
+  return value;
 }
 
 async function rollbackTransaction(tables: TablesDB, transactionId: string): Promise<void> {
