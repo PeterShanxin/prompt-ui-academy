@@ -73,11 +73,12 @@ Track that split as a release blocker rather than leaving one project wildcarded
 for production traffic.
 
 If preview sign-in is ever shared with people outside the maintainer team before
-that split happens, drop the wildcard and pin the third platform slot to the
-exact branch hostname instead, re-pointing it per pull request and confirming
-with `npm run appwrite:verify-platforms`. Owning a domain removes the dilemma
-entirely: alias previews to it and register `*.preview.<your-domain>`, a wildcard
-bounded by DNS you control.
+that split happens, drop the wildcard and pin the third platform slot to a single
+stable QA preview alias instead, confirming it with
+`npm run appwrite:verify-platforms`. That alias is what section 6 keeps pointed
+at the pull request under test, so the platform list stops changing per branch.
+Owning a domain removes the dilemma entirely: alias previews to it and register
+`*.preview.<your-domain>`, a wildcard bounded by DNS you control.
 
 After changing platforms, confirm the result without opening a browser:
 
@@ -168,7 +169,100 @@ them to a single branch, so every pull-request deployment inherits them:
 
 Leave cloud progress disabled for the ChatGPT Sites/Cloudflare build in this release.
 
-## 6. Validate before production
+## 6. Automate the QA preview alias
+
+Section 1 explains why per-branch preview hostnames cannot each be registered as
+Appwrite Web platforms. The narrower alternative to `*.vercel.app` is one stable
+QA hostname, registered once and reused by every pull request. A manually
+assigned Vercel alias does not follow new commits, so
+`.github/workflows/qa-preview-alias.yml` repoints it automatically and publishes
+the resulting link where reviewers look.
+
+The live platform list is still the one in section 1, wildcard included, so
+branch preview URLs do sign in today. The QA alias is the hostname that keeps
+signing in *after* the wildcard is dropped, and it is the only preview hostname
+whose registration never changes. The sticky comment therefore steers reviewers
+to the alias as the guaranteed link rather than claiming the branch URL is
+already broken. Keep the two sections consistent: if the third platform slot is
+ever repointed from `*.vercel.app` to this alias, say so in section 1.
+
+### How the workflow runs
+
+Vercel deploys through its own Git integration, so a `pull_request` run cannot
+know the preview URL. The workflow listens for `deployment_status` instead:
+GitHub emits one when Vercel finishes, carrying the deployment that just went
+live in `environment_url`. On a successful, non-production status it
+
+1. resolves the open pull request that contains the deployed commit;
+2. confirms through the Vercel REST API that the deployment is `READY`, belongs
+   to this project, and is not a production target, skipping green when any of
+   those does not hold — `environment_url` is a branch-scoped hostname, so it can
+   already have moved to a newer deployment that this pull request cannot act on;
+3. assigns the alias with `POST /v2/deployments/{id}/aliases`, the API behind
+   `vercel alias set`. That endpoint answers `409` both when the alias is already
+   on this deployment and when the domain is not allowed to be used, so a `409`
+   passes only after `GET /v2/deployments/{id}/aliases` shows the alias really is
+   on the deployment; otherwise the run fails rather than advertising a link that
+   never moved;
+4. creates or updates one sticky comment on the pull request carrying the QA
+   link, the aliased deployment, and the commit it points at.
+
+GitHub runs `deployment_status` workflows from the default branch, so the file
+takes effect only after it reaches `main`. A pull request that changes the
+workflow does not exercise the new version.
+
+### One-time setup
+
+1. In Vercel, assign the chosen hostname to any existing preview deployment once,
+   so the alias exists before CI tries to move it.
+2. Add that hostname as a Web platform in Appwrite (section 1), then confirm it
+   without a browser:
+
+   ```bash
+   npm run appwrite:verify-platforms -- <qa alias hostname>
+   ```
+
+3. Add the entries below under **Settings > Secrets and variables > Actions** in
+   the GitHub repository.
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `QA_PREVIEW_ALIAS` | Variable | The QA alias hostname, without a scheme |
+| `VERCEL_TOKEN` | Secret | A Vercel access token for the account or team that owns the project |
+| `VERCEL_PROJECT_ID` | Secret | The project ID from the Vercel project settings |
+| `VERCEL_ORG_ID` | Secret | The Vercel team ID; leave it unset for a personal account |
+
+Nothing else needs the alias hostname, so it is never hardcoded in the
+repository. When a required entry is missing, or when `VERCEL_PROJECT_ID` does
+not match the project that produced the deployment, the workflow finishes green
+rather than failing an unconfigured fork or clone — but it writes the reason to
+the run summary, so a mis-typed value is visible on the run page instead of only
+in the step log. If the alias never moves, open the newest **QA preview alias**
+run and read the summary before assuming the workflow is not wired up.
+
+### Accepted limits
+
+**Last writer wins.** Every open pull request shares this one alias, so the most
+recent preview deployment across all of them owns it. Alias-per-pull-request
+would cost one Appwrite platform slot per alias, which the free plan cannot fund,
+so a shared alias is the deliberate choice at current team size. Push a new
+commit to take the alias back; the workflow has no manual trigger, and re-running
+an old run replays the deployment status it was originally given.
+
+Each pull request's sticky comment records only the last time *that* pull request
+held the alias, and nothing updates it when another pull request takes over, so
+it goes stale silently. Before trusting a comment, confirm who currently owns the
+alias from the **QA preview alias** run list in the Actions tab, or from the
+deployment the alias resolves to in the Vercel dashboard.
+
+**Fork pull requests are skipped.** The alias is a registered Appwrite Web
+platform, so anything served from it can read and write a signed-in learner's
+session, as described in section 1. Pointing it at unreviewed fork code would
+hand that code those credentials. Fork pull requests are recorded as a notice and
+left on their branch URL, which signs in only while `*.vercel.app` is still
+registered and stops working the moment that wildcard is dropped.
+
+## 7. Validate before production
 
 Use two real test accounts and complete all of the following on the preview:
 

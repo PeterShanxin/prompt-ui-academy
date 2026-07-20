@@ -1,0 +1,220 @@
+name: QA preview alias
+
+# Vercel deploys through its own Git integration, so a pull_request run cannot
+# know the preview URL. deployment_status fires once Vercel finishes and carries
+# the deployment that just went live, which is the deployment we must alias.
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: qa-preview-alias-${{ github.workflow }}-${{ github.event.deployment.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repoint:
+    name: Repoint the QA preview alias
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment_url != '' &&
+      !startsWith(github.event.deployment_status.environment, 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      COMMENT_MARKER: "<!-- qa-preview-alias -->"
+      COMMIT_SHA: ${{ github.event.deployment.sha }}
+      ENVIRONMENT_URL: ${{ github.event.deployment_status.environment_url }}
+      GH_TOKEN: ${{ github.token }}
+      QA_PREVIEW_ALIAS: ${{ vars.QA_PREVIEW_ALIAS }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Resolve the pull request
+        id: pull-request
+        run: |
+          set -euo pipefail
+          pull_request="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${COMMIT_SHA}/pulls" \
+            --jq '[.[] | select(.state == "open")] | first // empty')"
+          if [ -z "${pull_request}" ]; then
+            reason="No open pull request contains ${COMMIT_SHA}; leaving the QA alias untouched."
+            echo "::notice::${reason}"
+            printf 'QA preview alias: skipped. %s\n' "${reason}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          head_repository="$(printf '%s' "${pull_request}" | jq -r '.head.repo.full_name // ""')"
+          if [ "${head_repository}" != "${GITHUB_REPOSITORY}" ]; then
+            reason="Pull request head ${head_repository:-unknown} is a fork; the QA alias is an Appwrite-registered origin and is never pointed at fork code."
+            echo "::notice::${reason}"
+            printf 'QA preview alias: skipped. %s\n' "${reason}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          printf 'number=%s\n' "$(printf '%s' "${pull_request}" | jq -r '.number')" >> "${GITHUB_OUTPUT}"
+          echo "skip=false" >> "${GITHUB_OUTPUT}"
+
+      - name: Check the alias configuration
+        id: configuration
+        if: steps.pull-request.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${QA_PREVIEW_ALIAS}" ] || missing="${missing} vars.QA_PREVIEW_ALIAS"
+          [ -n "${VERCEL_TOKEN}" ] || missing="${missing} secrets.VERCEL_TOKEN"
+          [ -n "${VERCEL_PROJECT_ID}" ] || missing="${missing} secrets.VERCEL_PROJECT_ID"
+          if [ -n "${missing}" ]; then
+            reason="The QA alias is not wired up yet; missing configuration:${missing}. See docs/APPWRITE_SETUP.md section 6."
+            echo "::notice::${reason}"
+            printf 'QA preview alias: skipped. %s\n' "${reason}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "skip=false" >> "${GITHUB_OUTPUT}"
+
+      - name: Resolve the Vercel deployment
+        id: deployment
+        if: steps.configuration.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          team_param=""
+          if [ -n "${VERCEL_ORG_ID}" ]; then
+            team_param="teamId=${VERCEL_ORG_ID}"
+          fi
+          host="${ENVIRONMENT_URL#http://}"
+          host="${host#https://}"
+          host="${host%%/*}"
+          response="${RUNNER_TEMP}/vercel-deployment.json"
+          status="$(curl --silent --show-error --output "${response}" --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v13/deployments/${host}?withGitRepoInfo=true&${team_param}")"
+          if [ "${status#2}" = "${status}" ]; then
+            echo "::error::Vercel returned HTTP ${status} for ${host}: $(cat "${response}")"
+            exit 1
+          fi
+          deployment="$(cat "${response}")"
+
+          ready_state="$(printf '%s' "${deployment}" | jq -r '.readyState // ""')"
+          target="$(printf '%s' "${deployment}" | jq -r '.target // "preview"')"
+          project_id="$(printf '%s' "${deployment}" | jq -r '.projectId // ""')"
+          deployment_id="$(printf '%s' "${deployment}" | jq -r '.id // ""')"
+          deployment_url="$(printf '%s' "${deployment}" | jq -r '.url // ""')"
+          deployment_sha="$(printf '%s' "${deployment}" | jq -r '.meta.githubCommitSha // ""')"
+
+          if [ "${project_id}" != "${VERCEL_PROJECT_ID}" ]; then
+            reason="${host} belongs to Vercel project ${project_id:-unknown}, which is not the configured secrets.VERCEL_PROJECT_ID; leaving the QA alias untouched. Check that the secret holds the prj_… identifier from the Vercel project settings, not the project name. See docs/APPWRITE_SETUP.md section 6."
+            echo "::notice::${reason}"
+            printf 'QA preview alias: skipped. %s\n' "${reason}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [ "${target}" = "production" ]; then
+            reason="${host} is a production deployment; the QA alias only tracks previews."
+            echo "::notice::${reason}"
+            printf 'QA preview alias: skipped. %s\n' "${reason}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          # environment_url is a branch-scoped hostname, so it can already have
+          # moved on to a newer deployment whose build failed or was cancelled.
+          # That is not this pull request's fault, so skip rather than fail red.
+          if [ "${ready_state}" != "READY" ]; then
+            reason="${host} now resolves to a deployment in state ${ready_state:-unknown}; Vercel only aliases READY deployments, so the QA alias is left untouched."
+            echo "::notice::${reason}"
+            printf 'QA preview alias: skipped. %s\n' "${reason}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [ -z "${deployment_id}" ] || [ -z "${deployment_url}" ]; then
+            echo "::error::Vercel returned no deployment id or URL for ${host}."
+            exit 1
+          fi
+          if [ -n "${deployment_sha}" ] && [ "${deployment_sha}" != "${COMMIT_SHA}" ]; then
+            echo "::notice::${host} now resolves to commit ${deployment_sha} rather than ${COMMIT_SHA}; aliasing the newer deployment."
+          fi
+
+          printf 'id=%s\n' "${deployment_id}" >> "${GITHUB_OUTPUT}"
+          printf 'url=%s\n' "${deployment_url}" >> "${GITHUB_OUTPUT}"
+          printf 'sha=%s\n' "${deployment_sha:-${COMMIT_SHA}}" >> "${GITHUB_OUTPUT}"
+          echo "skip=false" >> "${GITHUB_OUTPUT}"
+
+      - name: Assign the QA alias
+        id: alias
+        if: steps.deployment.outputs.skip == 'false'
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+        run: |
+          set -euo pipefail
+          team_param=""
+          if [ -n "${VERCEL_ORG_ID}" ]; then
+            team_param="teamId=${VERCEL_ORG_ID}"
+          fi
+          response="${RUNNER_TEMP}/vercel-alias.json"
+          status="$(curl --silent --show-error --output "${response}" --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "$(jq -n --arg alias "${QA_PREVIEW_ALIAS}" '{alias: $alias}')" \
+            "https://api.vercel.com/v2/deployments/${DEPLOYMENT_ID}/aliases?${team_param}")"
+          if [ "${status#2}" != "${status}" ]; then
+            echo "Pointed ${QA_PREVIEW_ALIAS} at ${DEPLOYMENT_ID}."
+            printf 'QA preview alias: pointed `%s` at deployment `%s`.\n' "${QA_PREVIEW_ALIAS}" "${DEPLOYMENT_ID}" >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          # Vercel documents 409 for two unrelated situations: "The provided alias
+          # is already assigned to the given deployment" and "The domain is not
+          # allowed to be used". Only the first is a success; the second means the
+          # alias never moved. The status code cannot tell them apart, so confirm
+          # against the deployment's own alias list before passing.
+          if [ "${status}" = "409" ]; then
+            aliases="${RUNNER_TEMP}/vercel-deployment-aliases.json"
+            list_status="$(curl --silent --show-error --output "${aliases}" --write-out '%{http_code}' \
+              --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+              "https://api.vercel.com/v2/deployments/${DEPLOYMENT_ID}/aliases?${team_param}")"
+            if [ "${list_status#2}" != "${list_status}" ] \
+              && jq --exit-status --arg alias "${QA_PREVIEW_ALIAS}" \
+                'any(.aliases[]?; .alias == $alias)' "${aliases}" > /dev/null; then
+              echo "::notice::${QA_PREVIEW_ALIAS} already points at ${DEPLOYMENT_ID}."
+              printf 'QA preview alias: `%s` already pointed at deployment `%s`.\n' "${QA_PREVIEW_ALIAS}" "${DEPLOYMENT_ID}" >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+            echo "::error::Vercel answered HTTP 409 and ${QA_PREVIEW_ALIAS} is not among the aliases of ${DEPLOYMENT_ID}, so the alias did not move. Assignment response: $(cat "${response}")"
+            exit 1
+          fi
+          echo "::error::Vercel refused the alias assignment (HTTP ${status}): $(cat "${response}")"
+          exit 1
+
+      - name: Comment the QA link on the pull request
+        if: steps.alias.outcome == 'success'
+        env:
+          COMMENT_FILE: ${{ runner.temp }}/qa-preview-alias-comment.md
+          DEPLOYMENT_SHA: ${{ steps.deployment.outputs.sha }}
+          DEPLOYMENT_URL: ${{ steps.deployment.outputs.url }}
+          PULL_REQUEST: ${{ steps.pull-request.outputs.number }}
+        run: |
+          set -euo pipefail
+          {
+            printf '%s\n\n' "${COMMENT_MARKER}"
+            printf '### QA preview link\n\n'
+            printf 'This hostname is the one permanently registered as an Appwrite Web platform, so Google sign-in is guaranteed to work on it. Prefer it over the "Visit Preview" branch URL, which only signs in for as long as a wildcard platform stays registered:\n\n'
+            printf '**https://%s**\n\n' "${QA_PREVIEW_ALIAS}"
+            printf -- '- Deployment: https://%s\n' "${DEPLOYMENT_URL}"
+            printf -- '- Commit: %s\n' "${DEPLOYMENT_SHA}"
+            printf -- '- Repointed: %s\n\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
+            printf 'Every open pull request shares this one alias, so the most recent preview deployment across all of them owns it. This comment records only the last time *this* pull request took it, and another pull request may have taken it since without updating this comment. Push again to take it back.\n'
+          } > "${COMMENT_FILE}"
+
+          comment_id="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PULL_REQUEST}/comments" \
+            | jq -s -r --arg marker "${COMMENT_MARKER}" '[.[][] | select((.body // "") | contains($marker))] | first | .id // empty')"
+          if [ -n "${comment_id}" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" \
+              --field body=@"${COMMENT_FILE}" --silent
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PULL_REQUEST}/comments" \
+              --field body=@"${COMMENT_FILE}" --silent
+          fi
