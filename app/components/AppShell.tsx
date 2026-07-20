@@ -1,23 +1,17 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowIcon } from "./Icons";
 import { I18nProvider, useI18n } from "./I18n";
-
-type LearningContextValue = {
-  learned: string[];
-  progress: number;
-  toggleLearned: (id: string) => void;
-};
-
-const LearningContext = createContext<LearningContextValue | null>(null);
-
-export function useLearningProgress() {
-  const value = useContext(LearningContext);
-  if (!value) throw new Error("useLearningProgress must be used inside AppShell");
-  return value;
-}
+import { AccountControls } from "./AccountControls";
+import { AuthModal } from "./AuthModal";
+import { AuthProvider } from "./AuthProvider";
+import {
+  LearningProgressProvider,
+  useLearningProgress,
+} from "./LearningProgressProvider";
+import { SaveProgressNotice } from "./SaveProgressNotice";
 
 const navItems = [
   { href: "/learn", zh: "学习路径", en: "Learning path" },
@@ -28,33 +22,27 @@ const navItems = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  return <I18nProvider><AppShellContent>{children}</AppShellContent></I18nProvider>;
+  return (
+    <I18nProvider>
+      <AuthProvider>
+        <LearningProgressProvider>
+          <AppShellContent>{children}</AppShellContent>
+          <AuthModal />
+        </LearningProgressProvider>
+      </AuthProvider>
+    </I18nProvider>
+  );
 }
 
 function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { locale, setLocale, pick } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [learned, setLearned] = useState<string[]>([]);
+  const { progress, noteActivity } = useLearningProgress();
 
   useEffect(() => {
-    const restore = window.setTimeout(() => {
-      try {
-        const saved = window.localStorage.getItem("ui-language-progress");
-        if (saved) setLearned(JSON.parse(saved));
-      } catch { /* Device storage may be unavailable. */ }
-    }, 0);
-    return () => window.clearTimeout(restore);
-  }, []);
-
-  const toggleLearned = (id: string) => setLearned((current) => {
-    const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
-    try { window.localStorage.setItem("ui-language-progress", JSON.stringify(next)); } catch { /* Keep in-memory progress. */ }
-    return next;
-  });
-
-  const progress = Math.max(8, Math.round(((learned.length + 1) / 12) * 100));
-  const contextValue = { learned, progress, toggleLearned };
+    noteActivity(pathname);
+  }, [noteActivity, pathname]);
 
   useEffect(() => {
     const pageNames: Record<string, [string, string]> = {
@@ -70,7 +58,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
   }, [locale, pathname]);
 
   return (
-    <LearningContext.Provider value={contextValue}>
+    <>
       <a className="skip-link" href="#main-content">{pick("跳到主要内容", "Skip to main content")}</a>
       <header className="site-header">
         <a className="brand" href="/" aria-label={pick("界面话术首页", "Interface Language home")} onClick={() => setMenuOpen(false)}><span className="brand-mark" aria-hidden="true">介</span><span>{pick("界面话术", "Interface Language")}</span></a>
@@ -79,12 +67,14 @@ function AppShellContent({ children }: { children: ReactNode }) {
         </nav>
         <div className="header-actions">
           <button className="language-toggle" type="button" onClick={() => setLocale(locale === "zh" ? "en" : "zh")} aria-label={pick("切换到英文", "Switch to Chinese")}><span>{locale === "zh" ? "EN" : "中文"}</span><i aria-hidden="true">↔</i></button>
+          <AccountControls />
           <a className="header-progress" href="/learn" aria-label={`${pick("当前学习进度", "Current learning progress")} ${progress}%`}><span>{pick("学习进度", "Progress")}</span><strong>{progress}%</strong><i><b style={{ width: `${progress}%` }} /></i><ArrowIcon /></a>
           <button className="mobile-menu-button" type="button" aria-label={menuOpen ? pick("关闭菜单", "Close menu") : pick("打开菜单", "Open menu")} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}><i /><i /></button>
         </div>
       </header>
+      <SaveProgressNotice />
       <main className="page-main" id="main-content">{children}</main>
       <footer><a className="brand footer-brand" href="/"><span className="brand-mark">介</span><span>{pick("界面话术", "Interface Language")}</span></a><p>{pick("一个帮助人类与 AI 更好协作的互动学习实验。", "An interactive experiment for better human-AI collaboration.")}</p><a href="/learn">{pick("继续学习", "Keep learning")} →</a></footer>
-    </LearningContext.Provider>
+    </>
   );
 }

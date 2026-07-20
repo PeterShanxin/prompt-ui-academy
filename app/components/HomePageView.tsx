@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowIcon } from "./Icons";
+import { CommunityProof } from "./CommunityProof";
 import { HomeQuickQuiz } from "./HomeQuickQuiz";
 import { useI18n } from "./I18n";
 
@@ -10,7 +11,7 @@ export function HomePageView() {
   return (
     <>
       <section className="hero home-hero" id="top">
-        <div className="hero-copy"><div className="course-pill"><span aria-hidden="true">✦</span> {pick("AI 协作基础课", "AI COLLABORATION BASICS")}</div><h1>{pick("先学会描述，", "Describe it clearly,")}<br />{pick("AI 才能准确创造", "then AI can create it")}</h1><p>{pick("从看见、命名到亲手练习，掌握界面语言，", "Learn interface language by seeing, naming, and practicing,")}<br className="desktop-break" />{pick("让每一次 Prompt 都更清晰。", "so every prompt becomes clearer.")}</p><div className="hero-actions"><a className="primary-button" href="/learn">{pick("查看学习路径", "View learning path")} <ArrowIcon /></a><a className="text-button" href="/dictionary">{pick("先逛逛词典", "Explore the dictionary")} <span>↗</span></a></div><div className="lesson-progress"><div><strong>{pick("3 章课程", "3 chapters")}</strong><span>/ {pick("约 45 分钟", "about 45 min")}</span></div><div className="progress-track"><i /></div><span>{pick("边看边练", "Learn by doing")}</span></div><div className="method-note" aria-label={pick("学习方法", "Learning method")}><b>01</b><span>{pick("看见", "See")} <i>→</i> {pick("命名", "Name")} <i>→</i> {pick("描述", "Describe")}</span></div></div>
+        <div className="hero-copy"><div className="course-pill"><span aria-hidden="true">✦</span> {pick("AI 协作基础课", "AI COLLABORATION BASICS")}</div><h1>{pick("先学会描述，", "Describe it clearly,")}<br />{pick("AI 才能准确创造", "then AI can create it")}</h1><p>{pick("从看见、命名到亲手练习，掌握界面语言，", "Learn interface language by seeing, naming, and practicing,")}<br className="desktop-break" />{pick("让每一次 Prompt 都更清晰。", "so every prompt becomes clearer.")}</p><div className="hero-actions"><a className="primary-button" href="/learn">{pick("查看学习路径", "View learning path")} <ArrowIcon /></a><a className="text-button" href="/dictionary">{pick("先逛逛词典", "Explore the dictionary")} <span>↗</span></a></div><CommunityProof /><div className="lesson-progress"><div><strong>{pick("3 章课程", "3 chapters")}</strong><span>/ {pick("约 45 分钟", "about 45 min")}</span></div><div className="progress-track"><i /></div><span>{pick("边看边练", "Learn by doing")}</span></div><div className="method-note" aria-label={pick("学习方法", "Learning method")}><b>01</b><span>{pick("看见", "See")} <i>→</i> {pick("命名", "Name")} <i>→</i> {pick("描述", "Describe")}</span></div></div>
         <HomeQuickQuiz />
       </section>
       <div className="hero-decoration blue" aria-hidden="true" /><div className="hero-decoration yellow" aria-hidden="true" /><div className="dot-field" aria-hidden="true" />
