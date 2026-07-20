@@ -7,10 +7,58 @@ Account sync is optional. The course remains fully usable without Appwrite, and 
 Create a dedicated Appwrite Cloud project for Prompt UI Academy in the region closest to the primary audience. Add Web platforms for:
 
 - `localhost` during development;
-- the Vercel preview hostname used for validation;
+- `*.vercel.app` so every pull-request preview deployment can sign in (see below);
 - `prompt-ui-academy.vercel.app` for production.
 
 Use the regional API endpoint shown by the Appwrite console, including `/v1`.
+
+Platforms can only be added through the console UI. Appwrite Cloud API keys are
+project-scoped and cannot carry the `projects.write` scope, so there is no
+scripted equivalent of this step.
+
+### Why pull-request previews need a wildcard
+
+Appwrite rejects any OAuth `success` or `failure` URL whose hostname is not a
+registered Web platform, with `Invalid \`success\` param: Invalid URI. Register
+your new client (<hostname>) as a new Web platform`. Vercel mints a new hostname
+per branch — `prompt-ui-academy-git-<branch>-<team>.vercel.app` — and rewrites it
+whenever a branch is renamed, so listing hostnames one at a time means every new
+pull request starts with broken sign-in.
+
+Registering `*.vercel.app` covers all current and future previews plus
+production in a single entry. Appwrite matches one leading wildcard against
+direct subdomains only, which is exactly the shape of every Vercel hostname.
+
+After changing platforms, confirm the result without opening a browser:
+
+```bash
+export NEXT_PUBLIC_APPWRITE_ENDPOINT=<regional endpoint>/v1
+export NEXT_PUBLIC_APPWRITE_PROJECT_ID=<project ID>
+npm run appwrite:verify-platforms                      # checks the defaults
+npm run appwrite:verify-platforms -- <preview hostname>  # checks one preview
+```
+
+The script reports each hostname as `allowed` or `REJECTED` and exits non-zero if
+any hostname is unregistered.
+
+### The wildcard is a preview-only setting
+
+`*.vercel.app` trusts every site hosted on `vercel.app`, not only ours. Appwrite
+sessions live in a cross-site cookie on the Appwrite domain, so a hostile page on
+any `vercel.app` subdomain could make credentialed calls against this project and
+read or overwrite a signed-in learner's progress and email address.
+
+That trade is acceptable while cloud progress is a preview-gated feature and no
+production learner data exists. Before enabling cloud progress in production,
+split the environments:
+
+- a preview Appwrite project that keeps `*.vercel.app`, wired to Vercel's Preview
+  environment variables;
+- a production Appwrite project whose only platforms are
+  `prompt-ui-academy.vercel.app` and `localhost`.
+
+Track that split as a release blocker rather than leaving one project wildcarded
+for production traffic.
 
 ## 2. Configure authentication
 
@@ -19,7 +67,11 @@ In **Auth > Settings**:
 1. Enable Email OTP. Appwrite sends the six-digit verification code used by the existing modal.
 2. Enable Google OAuth.
 3. Create a Google OAuth client and copy Appwrite's provider callback URL into Google Cloud exactly.
-4. Add the development, preview, and production origins to the OAuth configuration.
+
+Google only ever redirects back to Appwrite's own callback URL, so that single
+authorized redirect URI is the whole Google-side configuration. Application
+origins do not belong in the Google client — they are governed by the Appwrite
+Web platforms in step 1, which is what rejects unregistered preview hostnames.
 
 The application supplies only validated same-origin success and failure URLs. Learning routes are never gated by authentication.
 
@@ -75,7 +127,8 @@ All table permissions are empty. Browser clients never access these tables direc
 
 ## 5. Configure Vercel
 
-Set these variables for the intended Vercel preview first:
+Set these variables on the **Preview** environment first, without restricting
+them to a single branch, so every pull-request deployment inherits them:
 
 - `NEXT_PUBLIC_CLOUD_PROGRESS_ENABLED=true`
 - `NEXT_PUBLIC_APPWRITE_ENDPOINT=<regional endpoint>/v1`
