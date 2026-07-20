@@ -18,7 +18,7 @@ Prompt UI Academy was newly conceived and built during the OpenAI Build Week sub
 
 The supporting session records repository governance and housekeeping only: contributor and agent guidance, the standard worktree-to-review-to-human-approval workflow, and `main` branch protection with required CI and an administrator bypass. It did not add product functionality.
 
-The product-iteration session records a later, still-in-progress Build Week improvement cycle. PeterShanxin directed the account and learning-progress experience, repeatedly tested the standalone preview, reported concrete interaction problems, and separated immediate fixes from future curriculum work. GPT-5.6 and Codex turned that feedback into a guest-first cloud-progress design, an Appwrite-backed preview implementation, data-loss debugging, iterative UI fixes, regression tests, and a durable improvement epic. The feature remains on a preview branch pending final human validation; production is unchanged.
+The product-iteration session records a later Build Week improvement cycle. PeterShanxin directed the account and learning-progress experience, repeatedly tested the standalone preview, reported concrete interaction problems, and separated immediate fixes from future curriculum work. GPT-5.6 and Codex turned that feedback into a guest-first cloud-progress design, an Appwrite-backed implementation, data-loss debugging, iterative UI fixes, regression tests, and a durable improvement epic. The feature merged into `main` through [PR #9](https://github.com/PeterShanxin/prompt-ui-academy/pull/9) after human validation on the preview deployment. It stays behind the `NEXT_PUBLIC_CLOUD_PROGRESS_ENABLED` flag, which is not enabled for production, so the public deployment is unchanged and remains fully anonymous.
 
 ## Problem and intended learners
 
@@ -70,6 +70,10 @@ Times below use UTC. The Codex/Sites checkpoints preserve the original build seq
 | 2026-07-18 08:12 to 15:15 | Implemented the optional Appwrite Cloud account and per-user progress store on a feature preview. Added local-to-cloud merge, account-scoped progress, sync state, privacy-safe founding-learner messaging, and account controls while preserving anonymous learning. | Product iteration session; feature commits `525f156` through `6fd8bf4`; Vercel preview | Core functionality and infrastructure |
 | 2026-07-18 10:55 to 15:15 | Used repeated hands-on preview feedback to improve modal placement, save prompts, community calls to action, visible sync state, menu dismissal, and account settings. Live Appwrite data exposed a stale whole-record overwrite; Codex replaced it with per-item timestamp reconciliation inside retryable transactions so newer completions and intentional undos survive navigation and concurrent saves. | Product iteration session; commits `1afc921` and `6fd8bf4`; progress regression tests | Debugging, bug fixes, and product iteration |
 | 2026-07-18 15:05 onward | Split review findings into immediate cloud-progress fixes and a durable follow-up epic covering learning clarity, checkpoint prerequisites, bilingual terminology, taught-content quiz coverage, randomized question banks, and an honest, more useful Prompt Lab roadmap. | [GitHub epic #8](https://github.com/PeterShanxin/prompt-ui-academy/issues/8); product iteration session | Product direction and backlog |
+| 2026-07-19 to 2026-07-20 | Addressed automated Codex review of the cloud-progress pull request. Reordered account deletion so the identity is disabled as a write barrier before private rows are removed transactionally, with rows restored if identity deletion fails; made progress routes recheck identity after row-creating actions so a deletion racing a write cannot leave orphaned data; and preserved a newer pending local edit made while the initial cloud flush was in flight. | [PR #9](https://github.com/PeterShanxin/prompt-ui-academy/pull/9) review threads; commits `15d200d` and `c813a05`; route and store regression tests | Debugging and bug fixes |
+| 2026-07-20 | Documented Appwrite setup, added a browser-free platform verification script, and diagnosed why pull-request preview deployments could not complete Google sign-in: Appwrite validates the OAuth `success` URL against its registered Web platforms, and Vercel mints a new hostname per branch. Recorded the security trade-off of each available platform pattern. | `docs/APPWRITE_SETUP.md`; `scripts/verify-appwrite-platforms.mjs`; commits `74c513a` through `4cad78f` | Infrastructure and documentation |
+| 2026-07-20 | Fixed the final Codex review finding: a failed first-login import left the merge marker unset while every retry path used the reconciling PUT, so a newer guest `completed: false` could revert a cloud completion. Retries now go through the additive merge endpoint until the marker is recorded. | [PR #9](https://github.com/PeterShanxin/prompt-ui-academy/pull/9); commit `62cfda4`; `tests/cloud-progress.test.mjs` | Debugging and bug fix |
+| 2026-07-20 | Completed human validation on the preview deployment and merged the cloud-progress feature into `main` with the production flag left disabled. Filed the two remaining findings — preview-alias automation and a signed-in progress flash on navigation — as tracked issues rather than blocking the merge. | Merge commit [`dcea212`](https://github.com/PeterShanxin/prompt-ui-academy/commit/dcea2122); issues [#11](https://github.com/PeterShanxin/prompt-ui-academy/issues/11) and [#12](https://github.com/PeterShanxin/prompt-ui-academy/issues/12) | Release and backlog |
 
 ## Evidence summary
 
@@ -87,11 +91,12 @@ Times below use UTC. The Codex/Sites checkpoints preserve the original build seq
 | Dependabot handling | PRs #1 through #6, compatibility review, and dependency commits | Maintenance | High |
 | Contributor workflow and protected `main` | Supporting maintenance session, `AGENTS.md`, and live GitHub branch protection settings | Documentation and repository governance | High |
 | Guest-first optional account and cross-device progress design | Product iteration session and cloud-progress design document | Product design | High |
-| Appwrite user accounts, per-user progress, and local-to-cloud merge | Product iteration session, feature branch implementation, API routes, and preview deployment | Core functionality and infrastructure | High for preview; not yet production |
-| Transactional per-item progress reconciliation | Live Appwrite-row diagnosis, progress-store implementation, and stale-write/undo regression tests | Debugging and bug fix | High for preview; final human validation pending |
+| Appwrite user accounts, per-user progress, and local-to-cloud merge | Product iteration session, API routes, provisioning script, and [PR #9](https://github.com/PeterShanxin/prompt-ui-academy/pull/9) merged as [`dcea212`](https://github.com/PeterShanxin/prompt-ui-academy/commit/dcea2122) | Core functionality and infrastructure | High; merged to `main`, disabled in production by flag |
+| Transactional per-item progress reconciliation | Live Appwrite-row diagnosis, progress-store implementation, and stale-write/undo regression tests | Debugging and bug fix | High; human validation passed on the preview |
+| Account-deletion ordering and first-login import durability | Codex review of PR #9, the resulting fixes, and their regression tests | Debugging and bug fix | High |
 | Iterative UX review and future improvement direction | User browser annotations, review-flow commits, and GitHub epic #8 | Product iteration and backlog | High |
 
-## In-progress cloud-progress iteration
+## Cloud-progress iteration
 
 The cloud-progress work deliberately preserves the original anonymous experience:
 
@@ -103,7 +108,9 @@ The cloud-progress work deliberately preserves the original anonymous experience
 
 PeterShanxin tested the preview across routes and viewport sizes, then annotated unclear, broken, or misleading interactions. Immediate account and sync feedback stayed in the feature branch. Larger teaching-product findings moved to [epic #8](https://github.com/PeterShanxin/prompt-ui-academy/issues/8), preserving direction for richer course coverage, question banks, more granular progress, prerequisite-aware checkpoints, complete bilingual terminology, and a clearer Prompt Lab.
 
-Current status: the feature branch passed the repository's lint, Vercel build, Vinext/Cloudflare build, and 31-test quality gate at the recorded checkpoint. A stable Vercel preview was available for review. Production remained unchanged, and later feedback fixes reset the final human-validation gate.
+Current status: merged into `main` as [`dcea212`](https://github.com/PeterShanxin/prompt-ui-academy/commit/dcea2122) after the lint, Vercel build, and 41-test quality gate passed and PeterShanxin completed hands-on validation of sign-in and cross-device progress on the preview deployment. Every automated Codex review finding was answered before the merge.
+
+The public production deployment is unchanged. Cloud progress is gated behind `NEXT_PUBLIC_CLOUD_PROGRESS_ENABLED`, which is enabled only for preview deployments, so judges testing the live site see the same fully anonymous experience described throughout this record. Two known items are tracked rather than blocking: preview-alias automation ([#11](https://github.com/PeterShanxin/prompt-ui-academy/issues/11)) and a signed-in progress flash on navigation ([#12](https://github.com/PeterShanxin/prompt-ui-academy/issues/12)). Enabling cloud progress for production additionally requires separating the preview and production Appwrite projects, recorded as a release blocker in [APPWRITE_SETUP.md](APPWRITE_SETUP.md).
 
 ## Technical architecture
 
@@ -111,12 +118,13 @@ Current status: the feature branch passed the repository's lint, Vercel build, V
 - Statically rendered route pages with focused client interaction components
 - Shared bilingual content and curriculum in `app/lib/content.ts`
 - Device-local locale and learning progress through `localStorage`
+- Optional Appwrite Cloud accounts and per-user progress behind `NEXT_PUBLIC_CLOUD_PROGRESS_ENABLED`, disabled in production
 - Tailwind CSS 4 through PostCSS plus project-specific responsive CSS
 - Native Next.js build for Vercel
 - Vinext and Cloudflare Worker artifact for the ChatGPT Sites mirror
 - GitHub Actions quality gate covering install, lint, Vercel build, Sites build, and tests
 
-No account, backend, API key, or sample dataset is required for the learning experience.
+No account, backend, API key, or sample dataset is required for the learning experience. Account sync is strictly optional and additive: it is disabled in production, and every learning route works without it.
 
 ## Judge testing path
 
@@ -152,7 +160,7 @@ npm test
 - Codex and GPT-5.6 collaboration record: ready
 - Primary Codex session ID: recorded
 - Supporting repository-maintenance session ID: recorded
-- Product iteration and cloud-progress session ID: recorded; work remains in progress
+- Product iteration and cloud-progress session ID: recorded; feature merged with production kept unchanged
 - English Devpost copy: see [DEVPOST_SUBMISSION.md](DEVPOST_SUBMISSION.md)
 - Demo storyboard and narration: see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)
 - Public YouTube upload: manual action required before submission
