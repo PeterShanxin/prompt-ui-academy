@@ -7,8 +7,11 @@ Account sync is optional. The course remains fully usable without Appwrite, and 
 Create a dedicated Appwrite Cloud project for Prompt UI Academy in the region closest to the primary audience. Add Web platforms for:
 
 - `localhost` during development;
-- `*.vercel.app` so every pull-request preview deployment can sign in (see below);
+- `*-peters-projects-9950e3ae.vercel.app` so every pull-request preview deployment
+  can sign in (see below);
 - `prompt-ui-academy.vercel.app` for production.
+
+The free plan allows three platforms per project, which is exactly this list.
 
 Use the regional API endpoint shown by the Appwrite console, including `/v1`.
 
@@ -19,46 +22,38 @@ scripted equivalent of this step.
 ### Why pull-request previews need a wildcard
 
 Appwrite rejects any OAuth `success` or `failure` URL whose hostname is not a
-registered Web platform, with `Invalid \`success\` param: Invalid URI. Register
-your new client (<hostname>) as a new Web platform`. Vercel mints a new hostname
-per branch — `prompt-ui-academy-git-<branch>-<team>.vercel.app` — and rewrites it
-whenever a branch is renamed, so listing hostnames one at a time means every new
-pull request starts with broken sign-in.
+registered Web platform, answering with `Invalid` `success` `param: Invalid URI.
+Register your new client ... as a new Web platform`. Vercel mints a fresh
+hostname for every branch, shaped like
+`prompt-ui-academy-git-BRANCH-TEAM.vercel.app`, and rewrites it whenever a branch
+is renamed. Listing preview hostnames one at a time therefore means every new
+pull request opens with sign-in broken, and the free plan's three-platform limit
+leaves no room to keep adding them.
 
-Registering `*.vercel.app` covers all current and future previews plus
-production in a single entry. Appwrite matches one leading wildcard against
-direct subdomains only, which is exactly the shape of every Vercel hostname.
+Appwrite matches a platform hostname by exact string, or — only when the pattern
+begins with `*` — by stripping that `*` and testing whether the request hostname
+ends with the remainder. The remainder does not have to start with a dot, and a
+`*` anywhere other than the first character is matched literally.
+
+That makes `*-peters-projects-9950e3ae.vercel.app` the right entry: it covers
+every current and future branch preview because they all end in the team suffix,
+while trusting nothing outside this Vercel team. Prefer it over the broader
+`*.vercel.app`, which would trust every site hosted on `vercel.app`. Appwrite
+sessions live in a cross-site cookie on the Appwrite domain, so any trusted
+origin can make credentialed calls against this project and read or overwrite a
+signed-in learner's progress and email address.
 
 After changing platforms, confirm the result without opening a browser:
 
 ```bash
-export NEXT_PUBLIC_APPWRITE_ENDPOINT=<regional endpoint>/v1
-export NEXT_PUBLIC_APPWRITE_PROJECT_ID=<project ID>
-npm run appwrite:verify-platforms                      # checks the defaults
-npm run appwrite:verify-platforms -- <preview hostname>  # checks one preview
+export NEXT_PUBLIC_APPWRITE_ENDPOINT=https://sgp.cloud.appwrite.io/v1
+export NEXT_PUBLIC_APPWRITE_PROJECT_ID=prompt-ui-academy
+npm run appwrite:verify-platforms
+npm run appwrite:verify-platforms -- some-preview-host.vercel.app
 ```
 
 The script reports each hostname as `allowed` or `REJECTED` and exits non-zero if
 any hostname is unregistered.
-
-### The wildcard is a preview-only setting
-
-`*.vercel.app` trusts every site hosted on `vercel.app`, not only ours. Appwrite
-sessions live in a cross-site cookie on the Appwrite domain, so a hostile page on
-any `vercel.app` subdomain could make credentialed calls against this project and
-read or overwrite a signed-in learner's progress and email address.
-
-That trade is acceptable while cloud progress is a preview-gated feature and no
-production learner data exists. Before enabling cloud progress in production,
-split the environments:
-
-- a preview Appwrite project that keeps `*.vercel.app`, wired to Vercel's Preview
-  environment variables;
-- a production Appwrite project whose only platforms are
-  `prompt-ui-academy.vercel.app` and `localhost`.
-
-Track that split as a release blocker rather than leaving one project wildcarded
-for production traffic.
 
 ## 2. Configure authentication
 
