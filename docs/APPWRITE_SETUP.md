@@ -40,14 +40,29 @@ domain label. Since a Vercel preview hostname is a single label directly under
 `vercel.app`, no narrower wildcard survives both checks.
 
 Accept the consequence deliberately: `*.vercel.app` trusts every site hosted on
-`vercel.app`, not only ours. Appwrite sessions live in a cross-site cookie on the
-Appwrite domain, so a hostile page on any `vercel.app` subdomain could make
-credentialed calls against this project and read or overwrite a signed-in
-learner's progress and email address.
+`vercel.app`, not only ours, and the platform list is the *only* control guarding
+two things.
 
-That trade is acceptable while cloud progress is preview-gated and no production
-learner data exists. Before enabling cloud progress in production, split the
-environments:
+First, credentialed cross-origin access. Appwrite Cloud sets the session cookie
+with `SameSite=None`, and its CORS layer reflects any origin whose host matches a
+platform together with `Access-Control-Allow-Credentials: true`. A hostile page
+on any `vercel.app` subdomain can therefore call this project with the visitor's
+session attached and read or overwrite their email, name, and progress.
+
+Second, session theft. The OAuth2 token flow appends `userId` and a `secret` to
+the `success` URL, and `success` is validated against the platform hostnames and
+nothing else. An attacker who deploys any site to `vercel.app` can send a learner
+a link whose `success` points at that site, receive the returned credentials, and
+exchange them for a session — full account takeover, not just data disclosure.
+
+Both require the learner to visit or click, and the attacker only needs one free
+Vercel deployment to obtain a qualifying hostname.
+
+That trade is acceptable while cloud progress is preview-gated and the only
+people signing in are maintainers testing their own pull requests. It stops being
+acceptable the moment real learners sign in, because the same wildcard also
+matches `prompt-ui-academy.vercel.app`. Before enabling cloud progress in
+production, split the environments:
 
 - a preview Appwrite project that keeps `*.vercel.app`, wired to Vercel's Preview
   environment variables;
@@ -56,6 +71,13 @@ environments:
 
 Track that split as a release blocker rather than leaving one project wildcarded
 for production traffic.
+
+If preview sign-in is ever shared with people outside the maintainer team before
+that split happens, drop the wildcard and pin the third platform slot to the
+exact branch hostname instead, re-pointing it per pull request and confirming
+with `npm run appwrite:verify-platforms`. Owning a domain removes the dilemma
+entirely: alias previews to it and register `*.preview.<your-domain>`, a wildcard
+bounded by DNS you control.
 
 After changing platforms, confirm the result without opening a browser:
 
