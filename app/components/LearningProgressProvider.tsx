@@ -83,6 +83,7 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
   const [profile, setProfile] = useState<LearnerProfile | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const recordRef = useRef(record);
+  const guestRef = useRef(guestRecord);
   const syncQueue = useRef(Promise.resolve());
   const latestSync = useRef(0);
   const syncContext = useRef(0);
@@ -92,6 +93,11 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
   const replaceRecord = useCallback((next: LearningProgressRecord) => {
     recordRef.current = next;
     setRecord(next);
+  }, []);
+
+  const replaceGuestRecord = useCallback((next: LearningProgressRecord) => {
+    guestRef.current = next;
+    setGuestRecord(next);
   }, []);
 
   const persist = useCallback((next: LearningProgressRecord, userId?: string) => {
@@ -117,13 +123,13 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
       } catch {
         // Empty progress remains usable when browser storage is unavailable.
       }
-      setGuestRecord(restored);
+      replaceGuestRecord(restored);
       replaceRecord(restored);
       setSyncStatus("local");
       setGuestRestored(true);
     }, 0);
     return () => window.clearTimeout(restore);
-  }, [replaceRecord]);
+  }, [replaceGuestRecord, replaceRecord]);
 
   useEffect(() => {
     const oldUserId = previousUserId.current;
@@ -224,15 +230,36 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
       syncQueue.current = syncQueue.current
         .catch(() => undefined)
         .then(async () => {
-          const canonical = await saveCloudProgress(account, snapshot);
+          const mergeKey = getAccountMergeKey(userId);
+          const pendingKey = getAccountPendingKey(userId);
+          let canonical: LearningProgressRecord;
+          let importedProfile: LearnerProfile | null = null;
+          if (window.localStorage.getItem(mergeKey) !== "true") {
+            // The first-login import never completed, so retry it through the
+            // additive merge. A reconciling PUT here would let a newer guest
+            // `completed: false` revert a cloud completion the import exists
+            // to preserve. Only genuine post-sign-in edits are flushed after.
+            const imported = await mergeGuestProgress(account, guestRef.current);
+            window.localStorage.setItem(mergeKey, "true");
+            importedProfile = imported.profile;
+            const pending = parseProgressRecord(
+              window.localStorage.getItem(pendingKey),
+            );
+            canonical = pending.items.length || pending.lastRoute
+              ? await saveCloudProgress(account, pending)
+              : imported.record;
+          } else {
+            canonical = await saveCloudProgress(account, snapshot);
+          }
           if (
             version === latestSync.current &&
             contextVersion === syncContext.current &&
             previousUserId.current === userId
           ) {
+            if (importedProfile) setProfile(importedProfile);
             replaceRecord(canonical);
             persist(canonical, userId);
-            window.localStorage.removeItem(getAccountPendingKey(userId));
+            window.localStorage.removeItem(pendingKey);
             retryAttempts.current = 0;
             setSyncStatus("synced");
           }
@@ -265,12 +292,12 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
         }
         queueCloudSync(next);
       } else {
-        setGuestRecord(next);
+        replaceGuestRecord(next);
         persist(next);
         setSyncStatus("local");
       }
     },
-    [persist, queueCloudSync, replaceRecord, user],
+    [persist, queueCloudSync, replaceGuestRecord, replaceRecord, user],
   );
 
   const toggleLearned = useCallback(

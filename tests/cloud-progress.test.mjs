@@ -37,3 +37,31 @@ test("initial cloud flush preserves a newer pending local edit", async () => {
   assert.match(source, /if \(pendingUnchanged\)[\s\S]+removeItem/);
   assert.match(source, /if \(!pendingUnchanged\) return/);
 });
+
+test("retries a failed first-login import through the additive merge", async () => {
+  const source = await readFile(
+    new URL("../app/components/LearningProgressProvider.tsx", import.meta.url),
+    "utf8",
+  );
+
+  const queued = source.slice(source.indexOf("const queueCloudSync"));
+
+  // The retry paths funnel through queueCloudSync. While the merge marker is
+  // absent the sync must go to the merge endpoint, never the reconciling PUT.
+  assert.match(queued, /getItem\(mergeKey\) !== "true"/);
+  assert.match(queued, /await mergeGuestProgress\(account, guestRef\.current\)/);
+  assert.match(queued, /setItem\(mergeKey, "true"\)/);
+  assert.match(
+    queued,
+    /pending\.items\.length \|\| pending\.lastRoute[\s\S]{0,120}saveCloudProgress\(account, pending\)/,
+  );
+
+  // The guest record is mirrored into a ref so the retry sends the same
+  // payload the initial import would have, without rebuilding the callback.
+  assert.match(source, /const guestRef = useRef\(guestRecord\)/);
+  assert.match(source, /guestRef\.current = next;\s*setGuestRecord\(next\)/);
+
+  // Guest state is written only through replaceGuestRecord, so the ref can
+  // never drift from the state the retry payload is read from.
+  assert.equal(source.match(/setGuestRecord\(/g).length, 1);
+});
