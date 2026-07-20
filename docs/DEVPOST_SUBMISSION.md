@@ -45,7 +45,7 @@ Prompt UI Academy provides a bilingual, multi-route learning experience:
 - **Prompt Lab:** vague and precise prompt comparison, a five-part clarity score, editable instructions, and a keyword-driven simulated UI preview.
 - **Bilingual and accessible experience:** persistent Simplified Chinese and English, responsive layouts, keyboard focus, semantic controls, a skip link, and reduced-motion support.
 
-Learning progress and language preference stay on the learner's device. No account, API key, or paid service is required.
+Learning progress and language preference stay on the learner's device. No account, API key, or paid service is required. Optional cross-device account sync exists in the codebase but is disabled on the public deployment, so the experience judges test is entirely anonymous.
 
 ## Important Prompt Lab disclosure
 
@@ -105,7 +105,7 @@ The same source needed to pass both native Next.js compilation for Vercel and Vi
 - Built a coherent educational product rather than a static prompt guide.
 - Connected UI vocabulary, motion parameters, recall practice, and prompt structure in one learning journey.
 - Shipped a bilingual, responsive, keyboard-accessible public experience.
-- Preserved anonymous local progress with no account requirement.
+- Preserved anonymous local progress with no account requirement, then added optional cross-device sync without introducing a login wall.
 - Added tests for i18n, Modal layering, licence identity, rendered HTML, and deployable artifacts.
 - Published a professional MIT-licensed repository with CI and maintenance guidance.
 - Reviewed automated dependency proposals rather than blindly merging them.
