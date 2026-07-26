@@ -40,10 +40,10 @@
   "dependencies": {
     "appwrite": "26.2.0",
     "drizzle-orm": "0.45.2",
-    "next": "16.2.10",
-    "node-appwrite": "27.0.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "next": "16.2.12",
+    "node-appwrite": "27.1.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.45.0",
