@@ -1,1 +1,9 @@
+# Global code owner for normal changes.
 * @PeterShanxin
+
+# Dependency manifests are routed conditionally by
+# .github/workflows/dependabot-review-routing.yml so low-risk Dependabot
+# patch/minor groups stay quiet while human-authored and major/breaking changes
+# still request Peter's review.
+/package.json
+/package-lock.json
