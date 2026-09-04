@@ -1,25 +1,19 @@
 version: 2
+
 updates:
-  - package-ecosystem: npm
-    directory: /
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-      time: "04:00"
-      timezone: Asia/Singapore
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Singapore"
     open-pull-requests-limit: 5
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - version-update:semver-major
     groups:
-      production-minor-and-patch:
-        dependency-type: production
+      npm-minor-patch:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
         update-types:
-          - minor
-          - patch
-      development-minor-and-patch:
-        dependency-type: development
-        update-types:
-          - minor
-          - patch
+          - "minor"
+          - "patch"
