@@ -18,6 +18,7 @@ import {
 } from "../lib/cloud-progress";
 import {
   GUEST_PROGRESS_KEY,
+  LAST_ACCOUNT_KEY,
   LEGACY_TERMS_KEY,
   calculateCourseProgress,
   createEmptyProgress,
@@ -32,6 +33,7 @@ import {
   parseProgressRecord,
   recordLabEvaluation,
   recordQuizResult,
+  selectStartupRecord,
   setLastActivity,
   setProgressItem,
   type LearningProgressRecord,
@@ -89,6 +91,11 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
   const syncContext = useRef(0);
   const previousUserId = useRef<string | null>(null);
   const retryAttempts = useRef(0);
+  const authStatusRef = useRef(authStatus);
+
+  useEffect(() => {
+    authStatusRef.current = authStatus;
+  }, [authStatus]);
 
   const replaceRecord = useCallback((next: LearningProgressRecord) => {
     recordRef.current = next;
@@ -102,12 +109,41 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
 
   const persist = useCallback((next: LearningProgressRecord, userId?: string) => {
     try {
-      window.localStorage.setItem(
-        userId ? getAccountProgressKey(userId) : GUEST_PROGRESS_KEY,
-        JSON.stringify(next),
-      );
+      if (!userId) {
+        window.localStorage.setItem(GUEST_PROGRESS_KEY, JSON.stringify(next));
+        return;
+      }
+      window.localStorage.setItem(getAccountProgressKey(userId), JSON.stringify(next));
+      // An account snapshot is only usable on the next mount when this device
+      // also remembers whose it is, so the owner is recorded alongside it.
+      window.localStorage.setItem(LAST_ACCOUNT_KEY, userId);
     } catch {
       // Keep progress in memory when browser storage is unavailable.
+    }
+  }, []);
+
+  const readCachedAccountRecord = useCallback((): LearningProgressRecord | null => {
+    try {
+      const accountId = window.localStorage.getItem(LAST_ACCOUNT_KEY);
+      if (!accountId) return null;
+      return parseProgressRecord(
+        window.localStorage.getItem(getAccountProgressKey(accountId)),
+      );
+    } catch {
+      // Guest progress stays the fallback when browser storage is unavailable.
+    }
+    return null;
+  }, []);
+
+  const forgetAccountCache = useCallback(() => {
+    try {
+      const accountId = window.localStorage.getItem(LAST_ACCOUNT_KEY);
+      window.localStorage.removeItem(LAST_ACCOUNT_KEY);
+      // The pending key is deliberately kept: it holds edits that never reached
+      // the cloud and must survive until the same account signs in again.
+      if (accountId) window.localStorage.removeItem(getAccountProgressKey(accountId));
+    } catch {
+      // Account cache cleanup is best-effort.
     }
   }, []);
 
@@ -124,12 +160,27 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
         // Empty progress remains usable when browser storage is unavailable.
       }
       replaceGuestRecord(restored);
-      replaceRecord(restored);
-      setSyncStatus("local");
+      // A signed-in learner must never see the guest record, so an account
+      // snapshot this device wrote outranks the guest restore until the cloud
+      // load settles. A resolved signed-out or disabled status proves no
+      // session reaches this device, so the snapshot cannot win then.
+      const accountSessionPossible =
+        authStatusRef.current === "loading" || authStatusRef.current === "signed_in";
+      const startup = selectStartupRecord({
+        guest: restored,
+        cachedAccount: readCachedAccountRecord(),
+        accountSessionPossible,
+      });
+      replaceRecord(startup);
+      // While auth is unresolved the account effect owns the status, so the
+      // badge never churns local -> loading -> synced on a first-party load.
+      if (startup === restored && authStatusRef.current !== "loading") {
+        setSyncStatus("local");
+      }
       setGuestRestored(true);
     }, 0);
     return () => window.clearTimeout(restore);
-  }, [replaceGuestRecord, replaceRecord]);
+  }, [readCachedAccountRecord, replaceGuestRecord, replaceRecord]);
 
   useEffect(() => {
     const oldUserId = previousUserId.current;
@@ -144,6 +195,9 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
       try {
         window.localStorage.removeItem(getAccountProgressKey(oldUserId));
         window.localStorage.removeItem(getAccountPendingKey(oldUserId));
+        if (window.localStorage.getItem(LAST_ACCOUNT_KEY) === oldUserId) {
+          window.localStorage.removeItem(LAST_ACCOUNT_KEY);
+        }
       } catch {
         // Account cache is best-effort cleanup.
       }
@@ -154,6 +208,12 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
       const reset = window.setTimeout(() => {
         setProfile(null);
         if (authStatus !== "loading") {
+          // Auth resolved without a session while the network was reachable,
+          // so any account snapshot still on this device is stale (expired
+          // session, cleared cookies) and must not outrank a future guest
+          // restore. Offline also resolves to signed out, so the cache is
+          // kept in that case.
+          if (navigator.onLine) forgetAccountCache();
           replaceRecord(guestRecord);
           setSyncStatus("local");
         }
@@ -218,7 +278,16 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
     return () => {
       active = false;
     };
-  }, [account, authStatus, guestRecord, guestRestored, persist, replaceRecord, user]);
+  }, [
+    account,
+    authStatus,
+    forgetAccountCache,
+    guestRecord,
+    guestRestored,
+    persist,
+    replaceRecord,
+    user,
+  ]);
 
   const queueCloudSync = useCallback(
     (snapshot: LearningProgressRecord) => {
@@ -334,10 +403,31 @@ export function LearningProgressProvider({ children }: { children: ReactNode }) 
   const noteActivity = useCallback(
     (route: string) => {
       if (!guestRestored) return;
-      const next = setLastActivity(recordRef.current, route);
-      if (next !== recordRef.current) apply(next);
+      // While auth is unresolved a null user does not mean "guest": the shown
+      // record may be the account snapshot. Mirroring it into guest storage
+      // here would destroy the device's guest progress and later merge one
+      // learner's lessons into another's account. The callback identity
+      // changes when authStatus settles, which replays the note.
+      if (authStatus === "loading") return;
+      // `lastRoute` is a bookmark, not an achievement. It rides along with the
+      // next real progress write instead of spending a cloud round trip and a
+      // "syncing" badge on every page view.
+      if (user) {
+        const next = setLastActivity(recordRef.current, route);
+        if (next === recordRef.current) return;
+        replaceRecord(next);
+        persist(next, user.id);
+        return;
+      }
+      // Signed out, so the guest record is the only source of truth. Reading it
+      // from guestRef keeps the note off whatever the startup restore showed.
+      const next = setLastActivity(guestRef.current, route);
+      if (next === guestRef.current) return;
+      replaceGuestRecord(next);
+      replaceRecord(next);
+      persist(next);
     },
-    [apply, guestRestored],
+    [authStatus, guestRestored, persist, replaceGuestRecord, replaceRecord, user],
   );
 
   useEffect(() => {

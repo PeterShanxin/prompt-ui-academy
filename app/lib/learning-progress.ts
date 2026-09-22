@@ -1,6 +1,7 @@
 export const PROGRESS_SCHEMA_VERSION = 2;
 export const LEGACY_TERMS_KEY = "ui-language-progress";
 export const GUEST_PROGRESS_KEY = "prompt-ui-progress:v2:guest";
+export const LAST_ACCOUNT_KEY = "prompt-ui-progress:v2:last-account";
 
 export const LESSON_IDS = [
   "ui-components-patterns-structure",
@@ -80,6 +81,29 @@ export function getAccountMergeKey(userId: string): string {
 
 export function getAccountPendingKey(userId: string): string {
   return `prompt-ui-progress:v2:pending:${userId}`;
+}
+
+/**
+ * Decides which record a fresh mount shows before the cloud load settles.
+ *
+ * A signed-in learner must never be shown the guest record, so an account
+ * snapshot this device wrote outranks the guest restore. It only outranks it
+ * while a session is still plausible (`accountSessionPossible`) and while the
+ * snapshot actually carries progress, otherwise an empty or abandoned snapshot
+ * would show one learner's numbers to another.
+ */
+export function selectStartupRecord({
+  guest,
+  cachedAccount,
+  accountSessionPossible,
+}: {
+  guest: LearningProgressRecord;
+  cachedAccount: LearningProgressRecord | null;
+  accountSessionPossible: boolean;
+}): LearningProgressRecord {
+  if (!accountSessionPossible) return guest;
+  if (!cachedAccount || cachedAccount.items.length === 0) return guest;
+  return cachedAccount;
 }
 
 export function migrateLegacyTerms(
