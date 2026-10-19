@@ -46,3 +46,9 @@ Quiz questions should test recognition in context, not obscure trivia. Motion ex
 - Update `CHANGELOG.md` for user-facing changes.
 
 By contributing, you agree that your contribution is licensed under the repository's MIT License.
+
+## Writing clarity
+
+Human contributors and agents follow the project-wide
+[STE-inspired clarity standard](docs/WRITING_GUIDE.md) for new or changed README,
+documentation, help, error and UI text, comments, and delivery notes.
