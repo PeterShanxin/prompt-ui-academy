@@ -39,6 +39,11 @@ jobs:
           )
           payload='{"reviewers":["PeterShanxin"]}'
 
+          # GitHub rejects requesting a review from the pull request author.
+          if [[ "$PR_AUTHOR" == "PeterShanxin" ]]; then
+            exit 0
+          fi
+
           request_review() {
             curl --fail-with-body --silent --show-error "${headers[@]}" \
               -X POST "$api" -d "$payload" >/dev/null
