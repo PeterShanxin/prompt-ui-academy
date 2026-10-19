@@ -37,3 +37,8 @@ Use a task worktree except for very trivial changes, which may be committed dire
 ## Agent Maintenance
 
 Update this guide when its commands, structure, conventions, or expectations become stale or incomplete.
+
+## Writing clarity
+
+Follow [STE-inspired clarity](docs/WRITING_GUIDE.md) for new or changed text and delivery
+notes. This project-wide standard applies to human contributors and agents.
